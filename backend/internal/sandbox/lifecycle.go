@@ -78,6 +78,20 @@ func (sc *SupervisedClient) Ensure(ctx context.Context) (*Client, error) {
 		return sc.client, nil
 	}
 
+	if sc.cmd == nil {
+		if client, err := NewClient(sc.addr); err == nil {
+			checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+			_, pingErr := client.ListLoadedExtensions(checkCtx)
+			cancel()
+			if pingErr == nil {
+				log.Printf("sandbox: adopting existing process at %s", sc.addr)
+				sc.client = client
+				return sc.client, nil
+			}
+			client.Close()
+		}
+	}
+
 	if err := sc.spawnLocked(); err != nil {
 		return nil, err
 	}
@@ -126,7 +140,7 @@ func (sc *SupervisedClient) spawnLocked() error {
 		resolved.JavaBin, resolved.JarPath, resolved.Source)
 	heap := sc.heapMB
 	if heap <= 0 {
-		heap = 512
+		heap = 1024
 	}
 	cmd := exec.Command(resolved.JavaBin,
 		"-Dpolyglot.engine.WarnInterpreterOnly=false",
@@ -135,6 +149,8 @@ func (sc *SupervisedClient) spawnLocked() error {
 		"-XX:+UseSerialGC",
 		"-XX:TieredStopAtLevel=1",
 		"-XX:+ExitOnOutOfMemoryError",
+		"-XX:+HeapDumpOnOutOfMemoryError",
+		"-XX:HeapDumpPath="+filepath.Join(sc.storageDir, "sandbox-oom.hprof"),
 		"-Xss512k",
 		"-cp", resolved.JarPath,
 		"tsunagu.MainKt",

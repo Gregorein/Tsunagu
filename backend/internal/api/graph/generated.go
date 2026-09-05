@@ -271,6 +271,7 @@ type ComplexityRoot struct {
 		MigrateMedia              func(childComplexity int, fromMediaID string, toExtensionID string, toExternalID string) int
 		PullTracker               func(childComplexity int, mediaID string) int
 		RecomputeContentFilter    func(childComplexity int) int
+		RefetchMediaCover         func(childComplexity int, mediaID string) int
 		RefreshFolder             func(childComplexity int, folderID string) int
 		RefreshMetadata           func(childComplexity int, mediaID string, syncChapters *bool) int
 		RefreshMetadataMatch      func(childComplexity int, mediaID string) int
@@ -327,6 +328,7 @@ type ComplexityRoot struct {
 		LibraryGenres       func(childComplexity int, minCount *int32) int
 		LibraryTags         func(childComplexity int, minCount *int32) int
 		LibraryUpdateStatus func(childComplexity int) int
+		LocalSourceSearch   func(childComplexity int, query *string, page *int32) int
 		Media               func(childComplexity int, id string) int
 		MediaInFolder       func(childComplexity int, folderID string) int
 		PopularManga        func(childComplexity int, extensionID string, page *int32) int
@@ -612,6 +614,7 @@ type MutationResolver interface {
 	DeleteDatabaseBackup(ctx context.Context, name string) (bool, error)
 	StartLibraryUpdate(ctx context.Context, folderID *string) (bool, error)
 	SetMediaCover(ctx context.Context, mediaID string, url *string) (*model.Media, error)
+	RefetchMediaCover(ctx context.Context, mediaID string) (*model.Media, error)
 	RescanLocalMedia(ctx context.Context) ([]*model.Media, error)
 	TrackerLogin(ctx context.Context, trackerKey string, token string) (*model.Tracker, error)
 	TrackerLogout(ctx context.Context, trackerKey string) (bool, error)
@@ -648,6 +651,7 @@ type QueryResolver interface {
 	SourcePreferences(ctx context.Context, extensionID string) ([]*model.SourcePreference, error)
 	PopularManga(ctx context.Context, extensionID string, page *int32) (*model.SearchResponse, error)
 	LatestUpdates(ctx context.Context, extensionID string, page *int32) (*model.SearchResponse, error)
+	LocalSourceSearch(ctx context.Context, query *string, page *int32) (*model.SearchResponse, error)
 	DownloadStatus(ctx context.Context, mediaID string, chapterID string) (*model.Download, error)
 	DownloadQueue(ctx context.Context) ([]*model.Download, error)
 	DownloaderStatus(ctx context.Context) (*model.DownloaderStatus, error)
@@ -1851,6 +1855,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RecomputeContentFilter(childComplexity), true
+	case "Mutation.refetchMediaCover":
+		if e.ComplexityRoot.Mutation.RefetchMediaCover == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_refetchMediaCover_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RefetchMediaCover(childComplexity, args["mediaId"].(string)), true
 	case "Mutation.refreshFolder":
 		if e.ComplexityRoot.Mutation.RefreshFolder == nil {
 			break
@@ -2361,6 +2376,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.LibraryUpdateStatus(childComplexity), true
+	case "Query.localSourceSearch":
+		if e.ComplexityRoot.Query.LocalSourceSearch == nil {
+			break
+		}
+
+		args, err := ec.field_Query_localSourceSearch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.LocalSourceSearch(childComplexity, args["query"].(*string), args["page"].(*int32)), true
 	case "Query.media":
 		if e.ComplexityRoot.Query.Media == nil {
 			break
@@ -4605,6 +4631,20 @@ func (ec *executionContext) field_Mutation_pullTracker_args(ctx context.Context,
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_refetchMediaCover_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "mediaId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["mediaId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_refreshFolder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -5436,6 +5476,28 @@ func (ec *executionContext) field_Query_library_args(ctx context.Context, rawArg
 		return nil, err
 	}
 	args["offset"] = arg3
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_localSourceSearch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "query",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["query"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "page",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["page"] = arg1
 	return args, nil
 }
 
@@ -11229,6 +11291,50 @@ func (ec *executionContext) fieldContext_Mutation_setMediaCover(ctx context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_refetchMediaCover(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_refetchMediaCover(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RefetchMediaCover(ctx, fc.Args["mediaId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Media) graphql.Marshaler {
+			return ec.marshalNMedia2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐMedia(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_refetchMediaCover(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Media(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_refetchMediaCover_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_rescanLocalMedia(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12623,6 +12729,50 @@ func (ec *executionContext) fieldContext_Query_latestUpdates(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_latestUpdates_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_localSourceSearch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_localSourceSearch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().LocalSourceSearch(ctx, fc.Args["query"].(*string), fc.Args["page"].(*int32))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.SearchResponse) graphql.Marshaler {
+			return ec.marshalNSearchResponse2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐSearchResponse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_localSourceSearch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SearchResponse(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_localSourceSearch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -20002,6 +20152,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "refetchMediaCover":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_refetchMediaCover(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "rescanLocalMedia":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_rescanLocalMedia(ctx, field)
@@ -20614,6 +20771,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_latestUpdates(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "localSourceSearch":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_localSourceSearch(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}

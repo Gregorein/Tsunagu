@@ -434,6 +434,7 @@ type Query {
   sourcePreferences(extensionId: ID!): [SourcePreference!]!
   popularManga(extensionId: ID!, page: Int): SearchResponse!
   latestUpdates(extensionId: ID!, page: Int): SearchResponse!
+  localSourceSearch(query: String, page: Int): SearchResponse!
   downloadStatus(mediaId: ID!, chapterId: ID!): Download
   downloadQueue: [Download!]!
   downloaderStatus: DownloaderStatus!
@@ -519,6 +520,7 @@ type Mutation {
   startLibraryUpdate(folderId: ID): Boolean!
 
   setMediaCover(mediaId: ID!, url: String): Media!
+  refetchMediaCover(mediaId: ID!): Media!
 
   rescanLocalMedia: [Media!]!
 

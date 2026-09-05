@@ -92,6 +92,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("loading config: %v", err)
 	}
+	if wd, wdErr := os.Getwd(); wdErr == nil {
+		log.Printf("working directory: %s", wd)
+	}
+	if absData, absErr := filepath.Abs(bootCfg.DataDir); absErr == nil {
+		log.Printf("data directory: %s", absData)
+	} else {
+		log.Printf("data directory: %s (unresolved: %v)", bootCfg.DataDir, absErr)
+	}
+	log.Printf("config file: %s", tomlPath)
 	wantAddr := bootCfg.HTTPAddr
 	if !strings.Contains(wantAddr, ":") {
 		wantAddr = ":" + wantAddr

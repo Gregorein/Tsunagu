@@ -338,7 +338,8 @@ class ExtensionServiceImpl(
                     val update = runBlocking {
                         source.getMangaUpdate(stub, emptyList(), fetchDetails = true, fetchChapters = false)
                     }
-                    toEntryDetails(update.manga)
+                    stub.mergeDetailsFrom(update.manga)
+                    toEntryDetails(stub)
                 }
             }
             responseObserver.onNext(details)
@@ -580,6 +581,21 @@ class ExtensionServiceImpl(
             SManga.ON_HIATUS -> "On Hiatus"
             else -> ""
         }
+
+    private fun SManga.mergeDetailsFrom(from: SManga) {
+        fun <T> orNull(get: () -> T): T? =
+            try { get() } catch (_: UninitializedPropertyAccessException) { null }
+
+        orNull { from.url }?.takeIf { it.isNotBlank() }?.let { url = it }
+        orNull { from.title }?.takeIf { it.isNotBlank() }?.let { title = it }
+        from.artist?.let { artist = it }
+        from.author?.let { author = it }
+        from.description?.let { description = it }
+        from.genre?.let { genre = it }
+        if (from.status != SManga.UNKNOWN) status = from.status
+        from.thumbnail_url?.let { thumbnail_url = it }
+        initialized = true
+    }
 
     private fun toEntryDetails(manga: SManga): Sandbox.EntryDetails =
         Sandbox.EntryDetails.newBuilder()

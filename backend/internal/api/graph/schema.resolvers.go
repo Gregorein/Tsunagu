@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1042,6 +1043,35 @@ func (r *mutationResolver) SetMediaCover(ctx context.Context, mediaID string, ur
 	return toMedia(m, r.MediaDir), nil
 }
 
+func (r *mutationResolver) RefetchMediaCover(ctx context.Context, mediaID string) (*model.Media, error) {
+	id, err := parseID(mediaID)
+	if err != nil {
+		return nil, err
+	}
+	entry, err := r.Q.GetMedia(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if entry.CoverLocalPath.Valid && entry.CoverLocalPath.String != "" {
+		_ = os.Remove(entry.CoverLocalPath.String)
+	}
+	if err := r.Q.UpdateMediaCoverLocalPath(ctx, sqlcgen.UpdateMediaCoverLocalPathParams{ID: id, CoverLocalPath: sql.NullString{}}); err != nil {
+		return nil, fmt.Errorf("clearing cached cover for %d: %w", id, err)
+	}
+	if entry.ExtensionID.Valid {
+		if c, cerr := r.Sc.Ensure(ctx); cerr == nil {
+			if refreshed, rerr := r.Sy.RefreshMetadata(ctx, c, id, false); rerr == nil {
+				return toMedia(refreshed, r.MediaDir), nil
+			}
+		}
+	}
+	m, err := r.Q.GetMedia(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return toMedia(m, r.MediaDir), nil
+}
+
 func (r *mutationResolver) RescanLocalMedia(ctx context.Context) ([]*model.Media, error) {
 	if _, err := r.Ls.Scan(ctx); err != nil {
 		return nil, fmt.Errorf("rescanning local media: %w", err)
@@ -1605,6 +1635,41 @@ func (r *queryResolver) LatestUpdates(ctx context.Context, extensionID string, p
 		return nil, err
 	}
 	return r.toSearchResponse(ctx, ext, resp)
+}
+
+func (r *queryResolver) LocalSourceSearch(ctx context.Context, query *string, page *int32) (*model.SearchResponse, error) {
+	const pageSize = 50
+	p := int32(1)
+	if page != nil && *page >= 1 {
+		p = *page
+	}
+	rows, err := r.Q.ListLocalMedia(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := ""
+	if query != nil {
+		q = strings.ToLower(strings.TrimSpace(*query))
+	}
+	matched := make([]sqlcgen.Medium, 0, len(rows))
+	for _, m := range rows {
+		if q == "" || strings.Contains(strings.ToLower(m.Title), q) {
+			matched = append(matched, m)
+		}
+	}
+	start := int((p - 1) * pageSize)
+	if start > len(matched) {
+		start = len(matched)
+	}
+	end := start + pageSize
+	if end > len(matched) {
+		end = len(matched)
+	}
+	out := make([]*model.Media, 0, end-start)
+	for _, m := range matched[start:end] {
+		out = append(out, toMedia(m, r.MediaDir))
+	}
+	return &model.SearchResponse{Results: out, HasNextPage: end < len(matched)}, nil
 }
 
 func (r *queryResolver) DownloadStatus(ctx context.Context, mediaID string, chapterID string) (*model.Download, error) {

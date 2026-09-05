@@ -1,0 +1,13 @@
+package eu.kanade.tachiyomi.source.model
+
+fun SManga.copyFrom(other: SManga) {
+    if (other.title.isNotBlank()) title = other.title
+    other.author?.let { if (it.isNotBlank()) author = it }
+    other.artist?.let { if (it.isNotBlank()) artist = it }
+    other.description?.let { if (it.isNotBlank()) description = it }
+    other.genre?.let { if (it.isNotBlank()) genre = it }
+    other.thumbnail_url?.let { if (it.isNotBlank()) thumbnail_url = it }
+    if (other.status != SManga.UNKNOWN) status = other.status
+    update_strategy = other.update_strategy
+    initialized = other.initialized || initialized
+}

@@ -119,7 +119,8 @@ abstract class HttpSource : CatalogueSource {
     ): SMangaUpdate = supervisorScope {
         val asyncManga = if (fetchDetails) async { fetchMangaDetails(manga).awaitSingle() } else null
         val asyncChapters = if (fetchChapters) async { fetchChapterList(manga).awaitSingle() } else null
-        SMangaUpdate(asyncManga?.await() ?: manga, asyncChapters?.await() ?: chapters)
+        val updatedManga = asyncManga?.await()?.let { manga.also { m -> m.copyFrom(it) } } ?: manga
+        SMangaUpdate(updatedManga, asyncChapters?.await() ?: chapters)
     }
 
     @Deprecated("Use the suspend API instead", ReplaceWith("getPageList"))

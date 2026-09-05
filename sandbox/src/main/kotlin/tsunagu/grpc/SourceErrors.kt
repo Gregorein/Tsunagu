@@ -56,7 +56,8 @@ object SourceErrors {
         }
 
         return if ("jsoup" in text || "nullpointerexception" in text ||
-            "indexoutofbounds" in text || "no element" in text || "parse" in text
+            "indexoutofbounds" in text || "no element" in text || "parse" in text ||
+            "missingfieldexception" in text || "serializationexception" in text
         ) {
             PARSE to "The source response could not be parsed. Its site layout may have changed."
         } else {
