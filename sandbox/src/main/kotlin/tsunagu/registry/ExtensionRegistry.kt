@@ -4,8 +4,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import tsunagu.loader.ExtensionLoader
 import tsunagu.loader.LoadedExtension
+import java.io.Closeable
 import java.io.File
+import java.nio.file.FileSystemException
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 
 class ExtensionDownloadException(message: String) : Exception(message)
@@ -91,8 +94,31 @@ class ExtensionRegistry(
             throw InvalidExtensionIdException("novel extensions are disabled: $extensionId")
         }
         val target = targetFile(extensionId, ext)
-        sourceFile.copyTo(target, overwrite = true)
+        evict(extensionId)
+        replaceFile(target) { Files.copy(sourceFile.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING) }
         return load(target)
+    }
+
+    private fun evict(extensionId: String) {
+        extensions.remove(extensionId)?.let { ext ->
+            (ext.classLoader as? Closeable)?.let { runCatching { it.close() } }
+        }
+        pendingFiles.remove(extensionId)
+    }
+
+    private fun replaceFile(target: File, write: () -> Unit) {
+        var lastErr: Throwable? = null
+        repeat(5) { attempt ->
+            try {
+                write()
+                return
+            } catch (e: FileSystemException) {
+                lastErr = e
+                System.gc()
+                Thread.sleep(100L * (attempt + 1))
+            }
+        }
+        throw lastErr ?: IllegalStateException("could not write $target")
     }
 
     fun installFromUrl(apkUrl: String?, jarUrl: String?, jsUrl: String?, extensionId: String): LoadedExtension {
@@ -115,7 +141,8 @@ class ExtensionRegistry(
         val bytes = response.body.bytes()
 
         val target = targetFile(extensionId, ext)
-        Files.write(target.toPath(), bytes)
+        evict(extensionId)
+        replaceFile(target) { Files.write(target.toPath(), bytes) }
         return load(target)
     }
 

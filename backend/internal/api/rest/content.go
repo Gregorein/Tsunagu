@@ -240,6 +240,7 @@ func (h *ContentHandler) serveVideo(w http.ResponseWriter, r *http.Request, chap
 		}
 	}
 	if streamURL == "" {
+		log.Printf("serveVideo chapter=%d: source returned no stream url (sources=%d)", chapterID, len(info.GetSources()))
 		http.Error(w, "source returned no stream url", http.StatusBadGateway)
 		return
 	}
@@ -248,6 +249,7 @@ func (h *ContentHandler) serveVideo(w http.ResponseWriter, r *http.Request, chap
 	if looksHLS(streamURL) {
 		tgt, ok := publicHTTPURL(streamURL)
 		if !ok {
+			log.Printf("serveVideo chapter=%d: hls url rejected: %q", chapterID, streamURL)
 			http.Error(w, "stream url rejected", http.StatusBadGateway)
 			return
 		}
@@ -258,6 +260,7 @@ func (h *ContentHandler) serveVideo(w http.ResponseWriter, r *http.Request, chap
 	if looksDASH(streamURL) {
 		tgt, ok := publicHTTPURL(streamURL)
 		if !ok {
+			log.Printf("serveVideo chapter=%d: dash url rejected: %q", chapterID, streamURL)
 			http.Error(w, "stream url rejected", http.StatusBadGateway)
 			return
 		}
