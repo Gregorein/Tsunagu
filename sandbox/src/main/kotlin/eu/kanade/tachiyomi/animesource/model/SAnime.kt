@@ -25,6 +25,8 @@ interface SAnime {
 
     var initialized: Boolean
 
+    var memo: kotlinx.serialization.json.JsonObject?
+
     companion object {
         const val UNKNOWN = 0
         const val ONGOING = 1

@@ -60,7 +60,10 @@ class ExtensionServiceImpl(
         }
         val (code, human) = SourceErrors.classify(e)
         if (code != SourceErrors.INTERNAL) {
-            logger.warn { "extension call failed [$code]: $human (${compactCause(e)})" }
+            val where = if (generateSequence(e) { it.cause }.any { it is NullPointerException }) appFrames(e) else ""
+            logger.warn {
+                "extension call failed [$code]: $human (${compactCause(e)})" + if (where.isNotEmpty()) " @ $where" else ""
+            }
             return
         }
         val where = appFrames(e)
@@ -122,14 +125,20 @@ class ExtensionServiceImpl(
                     request.filtersList.applyTo(filters)
                     val page = runBlocking { source.getSearchManga(request.page, request.query, filters) }
                     builder.setHasNextPage(page.hasNextPage)
-                    page.mangas.forEach { manga -> builder.addResults(toEntrySummary(manga)) }
+                    page.mangas.forEach { manga ->
+                        EntryModelCache.putManga(request.extensionId, manga)
+                        builder.addResults(toEntrySummary(manga))
+                    }
                 }
                 is AnimeHttpSource -> {
                     val filters = source.getFilterList()
                     with(AnimeFilterSerde) { request.filtersList.applyTo(filters) }
                     val page = runBlocking { source.getSearchAnime(request.page, request.query, filters) }
                     builder.setHasNextPage(page.hasNextPage)
-                    page.animes.forEach { anime -> builder.addResults(toEntrySummaryAnime(anime)) }
+                    page.animes.forEach { anime ->
+                        EntryModelCache.putAnime(request.extensionId, anime)
+                        builder.addResults(toEntrySummaryAnime(anime))
+                    }
                 }
                 is NovelPlugin -> {
                     val results = source.searchNovels(request.query, request.page)
@@ -234,12 +243,18 @@ class ExtensionServiceImpl(
                 is HttpSource -> {
                     val page = runBlocking { source.fetchPopularManga(request.page).awaitSingle() }
                     builder.setHasNextPage(page.hasNextPage)
-                    page.mangas.forEach { manga -> builder.addResults(toEntrySummary(manga)) }
+                    page.mangas.forEach { manga ->
+                        EntryModelCache.putManga(request.extensionId, manga)
+                        builder.addResults(toEntrySummary(manga))
+                    }
                 }
                 is AnimeHttpSource -> {
                     val page = runBlocking { source.fetchPopularAnime(request.page).awaitSingle() }
                     builder.setHasNextPage(page.hasNextPage)
-                    page.animes.forEach { anime -> builder.addResults(toEntrySummaryAnime(anime)) }
+                    page.animes.forEach { anime ->
+                        EntryModelCache.putAnime(request.extensionId, anime)
+                        builder.addResults(toEntrySummaryAnime(anime))
+                    }
                 }
                 is NovelPlugin -> {
                     val results = source.popularNovels(request.page)
@@ -285,12 +300,18 @@ class ExtensionServiceImpl(
                 is HttpSource -> {
                     val page = runBlocking { source.fetchLatestUpdates(request.page).awaitSingle() }
                     builder.setHasNextPage(page.hasNextPage)
-                    page.mangas.forEach { manga -> builder.addResults(toEntrySummary(manga)) }
+                    page.mangas.forEach { manga ->
+                        EntryModelCache.putManga(request.extensionId, manga)
+                        builder.addResults(toEntrySummary(manga))
+                    }
                 }
                 is AnimeHttpSource -> {
                     val page = runBlocking { source.fetchLatestUpdates(request.page).awaitSingle() }
                     builder.setHasNextPage(page.hasNextPage)
-                    page.animes.forEach { anime -> builder.addResults(toEntrySummaryAnime(anime)) }
+                    page.animes.forEach { anime ->
+                        EntryModelCache.putAnime(request.extensionId, anime)
+                        builder.addResults(toEntrySummaryAnime(anime))
+                    }
                 }
 
                 is NovelPlugin -> builder.setHasNextPage(false)
@@ -309,6 +330,22 @@ class ExtensionServiceImpl(
         }
     }
 
+    private fun mangaStub(extensionId: String, url: String): SManga =
+        EntryModelCache.getManga(extensionId, url)?.apply { this.url = url }
+            ?: SManga.create().apply { this.url = url; title = "" }
+
+    private fun animeStub(extensionId: String, url: String): SAnime =
+        EntryModelCache.getAnime(extensionId, url)?.apply { this.url = url }
+            ?: SAnime.create().apply { this.url = url; title = "" }
+
+    private fun chapterStub(extensionId: String, url: String): SChapter =
+        EntryModelCache.getChapter(extensionId, url)?.apply { this.url = url }
+            ?: SChapter.create().apply { this.url = url; name = "" }
+
+    private fun episodeStub(extensionId: String, url: String): SEpisode =
+        EntryModelCache.getEpisode(extensionId, url)?.apply { this.url = url }
+            ?: SEpisode.create().apply { this.url = url; name = "" }
+
     override fun getDetails(
         request: Sandbox.EntryRequest,
         responseObserver: StreamObserver<Sandbox.EntryDetails>,
@@ -326,19 +363,21 @@ class ExtensionServiceImpl(
                 }
                 ContentType.ANIME -> {
                     val source = extension.source as AnimeHttpSource
-                    val stub = SAnime.create().apply { url = request.sourceEntryId; title = "" }
+                    val stub = animeStub(request.extensionId, request.sourceEntryId)
 
                     val details = runBlocking { source.getAnimeDetails(stub) }
                     stub.mergeDetailsFrom(details)
+                    EntryModelCache.putAnime(request.extensionId, stub)
                     toEntryDetailsAnime(stub)
                 }
                 ContentType.MANGA -> {
                     val source = extension.source as HttpSource
-                    val stub = SManga.create().apply { url = request.sourceEntryId; title = "" }
+                    val stub = mangaStub(request.extensionId, request.sourceEntryId)
                     val update = runBlocking {
                         source.getMangaUpdate(stub, emptyList(), fetchDetails = true, fetchChapters = false)
                     }
                     stub.mergeDetailsFrom(update.manga)
+                    EntryModelCache.putManga(request.extensionId, stub)
                     toEntryDetails(stub)
                 }
             }
@@ -370,12 +409,15 @@ class ExtensionServiceImpl(
                 }
                 else -> {
                     val source = extension.source as HttpSource
-                    val stub = SManga.create().apply { url = request.sourceEntryId; title = "" }
+                    val stub = mangaStub(request.extensionId, request.sourceEntryId)
                     val update = runBlocking {
                         source.getMangaUpdate(stub, emptyList(), fetchDetails = false, fetchChapters = true)
                     }
                     val builder = Sandbox.ChapterList.newBuilder()
-                    update.chapters.forEach { chapter -> builder.addChapters(toChapterSummary(chapter)) }
+                    update.chapters.forEach { chapter ->
+                        EntryModelCache.putChapter(request.extensionId, chapter)
+                        builder.addChapters(toChapterSummary(chapter))
+                    }
                     builder.build()
                 }
             }
@@ -392,7 +434,7 @@ class ExtensionServiceImpl(
         responseObserver: StreamObserver<Sandbox.PageList>,
     ) {
         handle(responseObserver, request.extensionId) { source ->
-            val chapter: SChapter = SChapter.create().apply { url = request.sourceChapterId; name = "" }
+            val chapter: SChapter = chapterStub(request.extensionId, request.sourceChapterId)
             val pages = runBlocking {
                 source.getPageList(chapter).map { page ->
                     page.imageUrl ?: source.getImageUrl(page)
@@ -435,10 +477,13 @@ class ExtensionServiceImpl(
         responseObserver: StreamObserver<Sandbox.EpisodeList>,
     ) {
         handleAnime(responseObserver, request.extensionId) { source ->
-            val stub = SAnime.create().apply { url = request.sourceEntryId; title = "" }
+            val stub = animeStub(request.extensionId, request.sourceEntryId)
             val episodes = runBlocking { source.getEpisodeList(stub) }
             val builder = Sandbox.EpisodeList.newBuilder()
-            episodes.forEach { episode -> builder.addEpisodes(toEpisodeSummary(episode)) }
+            episodes.forEach { episode ->
+                EntryModelCache.putEpisode(request.extensionId, episode)
+                builder.addEpisodes(toEpisodeSummary(episode))
+            }
             builder.build()
         }
     }
@@ -448,7 +493,7 @@ class ExtensionServiceImpl(
         responseObserver: StreamObserver<Sandbox.StreamInfo>,
     ) {
         handleAnime(responseObserver, request.extensionId) { source ->
-            val episode: SEpisode = SEpisode.create().apply { url = request.sourceEpisodeId; name = "" }
+            val episode: SEpisode = episodeStub(request.extensionId, request.sourceEpisodeId)
             val videos = runBlocking { source.getVideoList(episode) }
             if (videos.isEmpty()) {
                 throw IllegalStateException("no videos returned for episode ${request.sourceEpisodeId}")
@@ -612,6 +657,7 @@ class ExtensionServiceImpl(
         from.genre?.let { genre = it }
         if (from.status != SManga.UNKNOWN) status = from.status
         from.thumbnail_url?.let { thumbnail_url = it }
+        from.memo?.let { if (it.isNotEmpty()) memo = it }
         initialized = true
     }
 
@@ -660,6 +706,7 @@ class ExtensionServiceImpl(
         from.genre?.let { genre = it }
         if (from.status != 0) status = from.status
         from.thumbnail_url?.let { thumbnail_url = it }
+        from.memo?.let { if (it.isNotEmpty()) memo = it }
         initialized = true
     }
 

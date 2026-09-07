@@ -9,5 +9,6 @@ fun SManga.copyFrom(other: SManga) {
     other.thumbnail_url?.let { if (it.isNotBlank()) thumbnail_url = it }
     if (other.status != SManga.UNKNOWN) status = other.status
     update_strategy = other.update_strategy
+    other.memo?.let { if (it.isNotEmpty()) memo = it }
     initialized = other.initialized || initialized
 }

@@ -6,4 +6,5 @@ class SEpisodeImpl : SEpisode {
     override var date_upload: Long = 0
     override var episode_number: Float = -1f
     override var scanlator: String? = null
+    override var memo: kotlinx.serialization.json.JsonObject? = kotlinx.serialization.json.JsonObject(emptyMap())
 }

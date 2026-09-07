@@ -13,6 +13,8 @@ interface SChapter {
 
     var scanlator: String?
 
+    var memo: kotlinx.serialization.json.JsonObject?
+
     companion object {
         fun create(): SChapter {
             return SChapterImpl()
