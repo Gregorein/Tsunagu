@@ -283,6 +283,13 @@ type RecentChapter struct {
 	Media   *Media   `json:"media"`
 }
 
+type RelocateDownloadsResult struct {
+	NewPath    string  `json:"newPath"`
+	Migrated   bool    `json:"migrated"`
+	MovedFiles int32   `json:"movedFiles"`
+	MovedBytes float64 `json:"movedBytes"`
+}
+
 type Repository struct {
 	ID           string      `json:"id"`
 	IndexURL     string      `json:"indexUrl"`

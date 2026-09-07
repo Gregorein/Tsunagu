@@ -132,6 +132,15 @@ WHERE local_path IS NOT NULL AND local_path != '';
 -- name: DeleteMangaPage :exec
 DELETE FROM manga_pages WHERE chapter_id = ? AND page_number = ?;
 
+-- name: SetMangaPagePath :exec
+UPDATE manga_pages SET local_path = ? WHERE chapter_id = ? AND page_number = ?;
+
+-- name: SetNovelChapterContentPath :exec
+UPDATE novel_chapter_content SET local_path = ? WHERE chapter_id = ?;
+
+-- name: SetAnimeEpisodeStreamPath :exec
+UPDATE anime_episode_streams SET local_path = ? WHERE chapter_id = ?;
+
 -- name: GetChapterDownloadContext :one
 SELECT
     c.id AS chapter_id,

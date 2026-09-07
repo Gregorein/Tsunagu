@@ -15,6 +15,7 @@ type Config struct {
 	DBPath            string
 	JarCacheDir       string
 	MediaDir          string
+	DownloadsDir      string
 	SandboxJarPath    string
 	SandboxAddr       string
 	SandboxPort       int

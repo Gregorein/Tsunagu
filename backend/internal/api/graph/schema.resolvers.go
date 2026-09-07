@@ -1004,6 +1004,26 @@ func (r *mutationResolver) ClearStorageCategory(ctx context.Context, key string)
 	return r.storageInfoModel()
 }
 
+func (r *mutationResolver) RelocateDownloads(ctx context.Context, newPath string, migrate bool) (*model.RelocateDownloadsResult, error) {
+	res, err := r.Dm.Relocate(ctx, newPath, migrate)
+	if err != nil {
+		return nil, err
+	}
+	persist := res.NewPath
+	if abs, aerr := filepath.Abs(r.MediaDir); aerr == nil && abs == res.NewPath {
+		persist = ""
+	}
+	if _, err := r.Cfg.Set(ctx, "downloads_dir", persist); err != nil {
+		return nil, fmt.Errorf("persist downloads_dir: %w", err)
+	}
+	return &model.RelocateDownloadsResult{
+		NewPath:    res.NewPath,
+		Migrated:   migrate,
+		MovedFiles: int32(res.MovedFiles),
+		MovedBytes: float64(res.MovedBytes),
+	}, nil
+}
+
 func (r *mutationResolver) CreateDatabaseBackup(ctx context.Context) (*model.DatabaseBackup, error) {
 	b, err := r.createBackup(ctx)
 	if err != nil {

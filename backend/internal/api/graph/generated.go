@@ -275,6 +275,7 @@ type ComplexityRoot struct {
 		RefreshFolder             func(childComplexity int, folderID string) int
 		RefreshMetadata           func(childComplexity int, mediaID string, syncChapters *bool) int
 		RefreshMetadataMatch      func(childComplexity int, mediaID string) int
+		RelocateDownloads         func(childComplexity int, newPath string, migrate bool) int
 		RemoveContentFilterRule   func(childComplexity int, id string) int
 		RemoveMediaFromFolder     func(childComplexity int, mediaID string, folderID string) int
 		RenameFolder              func(childComplexity int, folderID string, name string) int
@@ -360,6 +361,13 @@ type ComplexityRoot struct {
 	RecentChapter struct {
 		Chapter func(childComplexity int) int
 		Media   func(childComplexity int) int
+	}
+
+	RelocateDownloadsResult struct {
+		Migrated   func(childComplexity int) int
+		MovedBytes func(childComplexity int) int
+		MovedFiles func(childComplexity int) int
+		NewPath    func(childComplexity int) int
 	}
 
 	Repository struct {
@@ -610,6 +618,7 @@ type MutationResolver interface {
 	UpdateFolderFlags(ctx context.Context, folderID string, includeInUpdate *bool, includeInDownload *bool) (*model.Folder, error)
 	ClearImageCache(ctx context.Context) (bool, error)
 	ClearStorageCategory(ctx context.Context, key string) (*model.StorageInfo, error)
+	RelocateDownloads(ctx context.Context, newPath string, migrate bool) (*model.RelocateDownloadsResult, error)
 	CreateDatabaseBackup(ctx context.Context) (*model.DatabaseBackup, error)
 	DeleteDatabaseBackup(ctx context.Context, name string) (bool, error)
 	StartLibraryUpdate(ctx context.Context, folderID *string) (bool, error)
@@ -1899,6 +1908,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RefreshMetadataMatch(childComplexity, args["mediaId"].(string)), true
+	case "Mutation.relocateDownloads":
+		if e.ComplexityRoot.Mutation.RelocateDownloads == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_relocateDownloads_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RelocateDownloads(childComplexity, args["newPath"].(string), args["migrate"].(bool)), true
 	case "Mutation.removeContentFilterRule":
 		if e.ComplexityRoot.Mutation.RemoveContentFilterRule == nil {
 			break
@@ -2594,6 +2614,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RecentChapter.Media(childComplexity), true
+
+	case "RelocateDownloadsResult.migrated":
+		if e.ComplexityRoot.RelocateDownloadsResult.Migrated == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateDownloadsResult.Migrated(childComplexity), true
+	case "RelocateDownloadsResult.movedBytes":
+		if e.ComplexityRoot.RelocateDownloadsResult.MovedBytes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateDownloadsResult.MovedBytes(childComplexity), true
+	case "RelocateDownloadsResult.movedFiles":
+		if e.ComplexityRoot.RelocateDownloadsResult.MovedFiles == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateDownloadsResult.MovedFiles(childComplexity), true
+	case "RelocateDownloadsResult.newPath":
+		if e.ComplexityRoot.RelocateDownloadsResult.NewPath == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateDownloadsResult.NewPath(childComplexity), true
 
 	case "Repository.addedAt":
 		if e.ComplexityRoot.Repository.AddedAt == nil {
@@ -3799,6 +3844,20 @@ func (ec *executionContext) childFields_RecentChapter(ctx context.Context, field
 	return nil, fmt.Errorf("no field named %q was found under type RecentChapter", field.Name)
 }
 
+func (ec *executionContext) childFields_RelocateDownloadsResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "newPath":
+		return ec.fieldContext_RelocateDownloadsResult_newPath(ctx, field)
+	case "migrated":
+		return ec.fieldContext_RelocateDownloadsResult_migrated(ctx, field)
+	case "movedFiles":
+		return ec.fieldContext_RelocateDownloadsResult_movedFiles(ctx, field)
+	case "movedBytes":
+		return ec.fieldContext_RelocateDownloadsResult_movedBytes(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RelocateDownloadsResult", field.Name)
+}
+
 func (ec *executionContext) childFields_Repository(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -4692,6 +4751,28 @@ func (ec *executionContext) field_Mutation_refreshMetadata_args(ctx context.Cont
 		return nil, err
 	}
 	args["syncChapters"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_relocateDownloads_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "newPath",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["newPath"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "migrate",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["migrate"] = arg1
 	return args, nil
 }
 
@@ -11127,6 +11208,50 @@ func (ec *executionContext) fieldContext_Mutation_clearStorageCategory(ctx conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_relocateDownloads(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_relocateDownloads(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RelocateDownloads(ctx, fc.Args["newPath"].(string), fc.Args["migrate"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.RelocateDownloadsResult) graphql.Marshaler {
+			return ec.marshalNRelocateDownloadsResult2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRelocateDownloadsResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_relocateDownloads(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RelocateDownloadsResult(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_relocateDownloads_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createDatabaseBackup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -13557,6 +13682,98 @@ func (ec *executionContext) fieldContext_RecentChapter_media(_ context.Context, 
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _RelocateDownloadsResult_newPath(ctx context.Context, field graphql.CollectedField, obj *model.RelocateDownloadsResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateDownloadsResult_newPath(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.NewPath, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateDownloadsResult_newPath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateDownloadsResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateDownloadsResult_migrated(ctx context.Context, field graphql.CollectedField, obj *model.RelocateDownloadsResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateDownloadsResult_migrated(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Migrated, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateDownloadsResult_migrated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateDownloadsResult", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateDownloadsResult_movedFiles(ctx context.Context, field graphql.CollectedField, obj *model.RelocateDownloadsResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateDownloadsResult_movedFiles(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MovedFiles, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateDownloadsResult_movedFiles(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateDownloadsResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateDownloadsResult_movedBytes(ctx context.Context, field graphql.CollectedField, obj *model.RelocateDownloadsResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateDownloadsResult_movedBytes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MovedBytes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateDownloadsResult_movedBytes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateDownloadsResult", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
 func (ec *executionContext) _Repository_id(ctx context.Context, field graphql.CollectedField, obj *model.Repository) (ret graphql.Marshaler) {
@@ -20124,6 +20341,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "relocateDownloads":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_relocateDownloads(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createDatabaseBackup":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createDatabaseBackup(ctx, field)
@@ -21196,6 +21420,59 @@ func (ec *executionContext) _RecentChapter(ctx context.Context, sel ast.Selectio
 			}
 		case "media":
 			out.Values[i] = ec._RecentChapter_media(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var relocateDownloadsResultImplementors = []string{"RelocateDownloadsResult"}
+
+func (ec *executionContext) _RelocateDownloadsResult(ctx context.Context, sel ast.SelectionSet, obj *model.RelocateDownloadsResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, relocateDownloadsResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RelocateDownloadsResult")
+		case "newPath":
+			out.Values[i] = ec._RelocateDownloadsResult_newPath(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "migrated":
+			out.Values[i] = ec._RelocateDownloadsResult_migrated(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "movedFiles":
+			out.Values[i] = ec._RelocateDownloadsResult_movedFiles(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "movedBytes":
+			out.Values[i] = ec._RelocateDownloadsResult_movedBytes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -23434,6 +23711,20 @@ func (ec *executionContext) marshalNRecentChapter2ᚖtsunaguᚋbackendᚋinterna
 		return graphql.Null
 	}
 	return ec._RecentChapter(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNRelocateDownloadsResult2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRelocateDownloadsResult(ctx context.Context, sel ast.SelectionSet, v model.RelocateDownloadsResult) graphql.Marshaler {
+	return ec._RelocateDownloadsResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNRelocateDownloadsResult2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRelocateDownloadsResult(ctx context.Context, sel ast.SelectionSet, v *model.RelocateDownloadsResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RelocateDownloadsResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNRepository2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v model.Repository) graphql.Marshaler {

@@ -889,6 +889,20 @@ func (q *Queries) NextUnreadChapterByMediaIDs(ctx context.Context, mediaIds []in
 	return items, nil
 }
 
+const setAnimeEpisodeStreamPath = `-- name: SetAnimeEpisodeStreamPath :exec
+UPDATE anime_episode_streams SET local_path = ? WHERE chapter_id = ?
+`
+
+type SetAnimeEpisodeStreamPathParams struct {
+	LocalPath sql.NullString `json:"local_path"`
+	ChapterID int64          `json:"chapter_id"`
+}
+
+func (q *Queries) SetAnimeEpisodeStreamPath(ctx context.Context, arg SetAnimeEpisodeStreamPathParams) error {
+	_, err := q.db.ExecContext(ctx, setAnimeEpisodeStreamPath, arg.LocalPath, arg.ChapterID)
+	return err
+}
+
 const setChapterNumber = `-- name: SetChapterNumber :exec
 UPDATE chapters SET number = ? WHERE id = ?
 `
@@ -900,6 +914,35 @@ type SetChapterNumberParams struct {
 
 func (q *Queries) SetChapterNumber(ctx context.Context, arg SetChapterNumberParams) error {
 	_, err := q.db.ExecContext(ctx, setChapterNumber, arg.Number, arg.ID)
+	return err
+}
+
+const setMangaPagePath = `-- name: SetMangaPagePath :exec
+UPDATE manga_pages SET local_path = ? WHERE chapter_id = ? AND page_number = ?
+`
+
+type SetMangaPagePathParams struct {
+	LocalPath  sql.NullString `json:"local_path"`
+	ChapterID  int64          `json:"chapter_id"`
+	PageNumber int64          `json:"page_number"`
+}
+
+func (q *Queries) SetMangaPagePath(ctx context.Context, arg SetMangaPagePathParams) error {
+	_, err := q.db.ExecContext(ctx, setMangaPagePath, arg.LocalPath, arg.ChapterID, arg.PageNumber)
+	return err
+}
+
+const setNovelChapterContentPath = `-- name: SetNovelChapterContentPath :exec
+UPDATE novel_chapter_content SET local_path = ? WHERE chapter_id = ?
+`
+
+type SetNovelChapterContentPathParams struct {
+	LocalPath sql.NullString `json:"local_path"`
+	ChapterID int64          `json:"chapter_id"`
+}
+
+func (q *Queries) SetNovelChapterContentPath(ctx context.Context, arg SetNovelChapterContentPathParams) error {
+	_, err := q.db.ExecContext(ctx, setNovelChapterContentPath, arg.LocalPath, arg.ChapterID)
 	return err
 }
 

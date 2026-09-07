@@ -31,6 +31,9 @@ type Manager struct {
 	sc       *sandbox.SupervisedClient
 	mediaDir string
 
+	dirMu        sync.RWMutex
+	downloadsDir string
+
 	pollInterval time.Duration
 	workers      int
 
@@ -44,11 +47,15 @@ type Manager struct {
 	paused   bool
 }
 
-func New(q *sqlcgen.Queries, sc *sandbox.SupervisedClient, mediaDir string) *Manager {
+func New(q *sqlcgen.Queries, sc *sandbox.SupervisedClient, mediaDir, downloadsDir string) *Manager {
+	if strings.TrimSpace(downloadsDir) == "" {
+		downloadsDir = mediaDir
+	}
 	return &Manager{
 		q:            q,
 		sc:           sc,
 		mediaDir:     mediaDir,
+		downloadsDir: downloadsDir,
 		pollInterval: 2 * time.Second,
 		workers:      2,
 		wakeCh:       make(chan struct{}, 1),
@@ -203,9 +210,24 @@ func titleFolderName(title, fallbackID string) string {
 	return folderSegment(title, fallbackID)
 }
 
+func (m *Manager) DownloadsDir() string {
+	m.dirMu.RLock()
+	defer m.dirMu.RUnlock()
+	return m.downloadsDir
+}
+
+func (m *Manager) SetDownloadsDir(dir string) {
+	if strings.TrimSpace(dir) == "" {
+		dir = m.mediaDir
+	}
+	m.dirMu.Lock()
+	m.downloadsDir = dir
+	m.dirMu.Unlock()
+}
+
 func (m *Manager) buildChapterDir(dctx sqlcgen.GetChapterDownloadContextRow) string {
 	return filepath.Join(
-		m.mediaDir,
+		m.DownloadsDir(),
 		contentTypeDir(dctx.ContentType),
 		extensionFolderName(dctx.ExtensionPackageName),
 		titleFolderName(dctx.LibraryTitle, dctx.SourceEntryID),
@@ -216,7 +238,7 @@ func (m *Manager) buildChapterDir(dctx sqlcgen.GetChapterDownloadContextRow) str
 func (m *Manager) removeEmptyDirs(dir string) {
 	for {
 		clean := filepath.Clean(dir)
-		if clean == filepath.Clean(m.mediaDir) || clean == "." || clean == string(filepath.Separator) {
+		if clean == filepath.Clean(m.mediaDir) || clean == filepath.Clean(m.DownloadsDir()) || clean == "." || clean == string(filepath.Separator) {
 			return
 		}
 		if err := os.Remove(dir); err != nil {

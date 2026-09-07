@@ -211,9 +211,22 @@ func main() {
 		log.Printf("warning: could not reload installed extensions on startup: %v", err)
 
 	}
-	downloadMgr := download.New(q, supervised, absMediaDir)
+	resolveDownloadsDir := func() string {
+		d := strings.TrimSpace(store.Config().DownloadsDir)
+		if d == "" {
+			return absMediaDir
+		}
+		if abs, err := filepath.Abs(d); err == nil {
+			return abs
+		}
+		return d
+	}
+	downloadMgr := download.New(q, supervised, absMediaDir, resolveDownloadsDir())
 	downloadMgr.Start()
 	defer downloadMgr.Shutdown()
+	store.OnChange("downloads_dir", func(context.Context) {
+		downloadMgr.SetDownloadsDir(resolveDownloadsDir())
+	})
 
 	streamResolver := streamresolve.New(supervised)
 

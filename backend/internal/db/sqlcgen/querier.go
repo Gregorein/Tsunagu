@@ -145,12 +145,15 @@ type Querier interface {
 	RenameFolder(ctx context.Context, arg RenameFolderParams) (Folder, error)
 	RequeueOrphanedDownloads(ctx context.Context) error
 	RetryDownload(ctx context.Context, id int64) (Download, error)
+	SetAnimeEpisodeStreamPath(ctx context.Context, arg SetAnimeEpisodeStreamPathParams) error
 	SetChapterNumber(ctx context.Context, arg SetChapterNumberParams) error
 	SetDownloadPosition(ctx context.Context, arg SetDownloadPositionParams) error
 	SetExtensionEnabled(ctx context.Context, arg SetExtensionEnabledParams) (Extension, error)
 	SetFolderSortOrder(ctx context.Context, arg SetFolderSortOrderParams) (Folder, error)
+	SetMangaPagePath(ctx context.Context, arg SetMangaPagePathParams) error
 	SetMediaContentBlockRank(ctx context.Context, arg SetMediaContentBlockRankParams) error
 	SetMediaCoverOverride(ctx context.Context, arg SetMediaCoverOverrideParams) (Medium, error)
+	SetNovelChapterContentPath(ctx context.Context, arg SetNovelChapterContentPathParams) error
 	SetSetting(ctx context.Context, arg SetSettingParams) error
 	TouchMediaViewed(ctx context.Context, id int64) error
 	TouchRepositorySync(ctx context.Context, id int64) error
