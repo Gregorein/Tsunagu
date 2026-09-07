@@ -25,6 +25,9 @@ ON CONFLICT DO NOTHING;
 -- name: RemoveMediaFromFolder :exec
 DELETE FROM media_folders WHERE media_id = ? AND folder_id = ?;
 
+-- name: RemoveMediaFromAllFolders :exec
+DELETE FROM media_folders WHERE media_id = ?;
+
 -- name: RemoveMediaFromFoldersByKind :exec
 DELETE FROM media_folders
 WHERE media_id = ?

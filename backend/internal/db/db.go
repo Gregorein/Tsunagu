@@ -46,6 +46,9 @@ var migration0008 string
 //go:embed migrations/0009_content_filter.sql
 var migration0009 string
 
+//go:embed migrations/0010_folder_library_invariant.sql
+var migration0010 string
+
 var migrations = []struct {
 	name string
 	sql  string
@@ -59,6 +62,7 @@ var migrations = []struct {
 	{"0007_metadata_cover.sql", migration0007},
 	{"0008_app_settings.sql", migration0008},
 	{"0009_content_filter.sql", migration0009},
+	{"0010_folder_library_invariant.sql", migration0010},
 }
 
 func Open(path string) (*sql.DB, error) {

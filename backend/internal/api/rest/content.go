@@ -94,7 +94,7 @@ func (h *ContentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.serveDASH(w, r, parts[3], chapterID)
 	case "subtitle":
-		h.serveSubtitle(w, r)
+		h.serveSubtitle(w, r, chapterID)
 	case "text":
 		h.serveText(w, r, chapterID)
 	default:
@@ -825,7 +825,7 @@ func pickVideoSource(sources []*sandboxv1.VideoSource, want string) *sandboxv1.V
 	return nil
 }
 
-func (h *ContentHandler) serveSubtitle(w http.ResponseWriter, r *http.Request) {
+func (h *ContentHandler) serveSubtitle(w http.ResponseWriter, r *http.Request, chapterID int64) {
 	raw, err := base64.RawURLEncoding.DecodeString(r.URL.Query().Get("u"))
 	if err != nil {
 		http.Error(w, "bad subtitle target", http.StatusBadRequest)
@@ -843,24 +843,14 @@ func (h *ContentHandler) serveSubtitle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	up, err := http.NewRequestWithContext(r.Context(), http.MethodGet, tgt.String(), nil)
-	if err != nil {
-		http.Error(w, "bad subtitle url", http.StatusBadGateway)
-		return
+	body, ok := h.fetchSubtitleViaSandbox(r.Context(), chapterID, tgt.String())
+	if !ok {
+		body, ok = h.fetchSubtitleDirect(r.Context(), tgt, headers)
+		if !ok {
+			http.Error(w, "subtitle fetch failed", http.StatusBadGateway)
+			return
+		}
 	}
-	applyUpstreamHeaders(up, headers)
-	resp, err := proxyClient.Do(up)
-	if err != nil {
-		http.Error(w, "subtitle fetch failed", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-
-		http.Error(w, "subtitle upstream HTTP "+strconv.Itoa(resp.StatusCode), http.StatusBadGateway)
-		return
-	}
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 
 	head := strings.ToLower(strings.TrimLeft(strings.TrimPrefix(string(body), "\ufeff"), " \t\r\n"))
 	ext := strings.ToLower(path.Ext(tgt.Path))
@@ -887,6 +877,55 @@ func (h *ContentHandler) serveSubtitle(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _ = w.Write(body)
 	}
+}
+
+func (h *ContentHandler) fetchSubtitleViaSandbox(ctx context.Context, chapterID int64, subURL string) ([]byte, bool) {
+	dctx, err := h.Q.GetChapterDownloadContext(ctx, chapterID)
+	if err != nil || dctx.ExtensionPackageName == "" {
+		return nil, false
+	}
+	client, err := h.Sc.Ensure(ctx)
+	if err != nil {
+		return nil, false
+	}
+	img, err := client.GetImageBytes(ctx, dctx.ExtensionPackageName, subURL)
+	if err != nil || len(img.GetData()) == 0 {
+		log.Printf("serveSubtitle: sandbox fetch failed for %s: %v", subURL, err)
+		return nil, false
+	}
+	return img.GetData(), true
+}
+
+func (h *ContentHandler) fetchSubtitleDirect(ctx context.Context, tgt *url.URL, passthrough map[string]string) ([]byte, bool) {
+	origin := tgt.Scheme + "://" + tgt.Host
+	attempts := []map[string]string{
+		{"User-Agent": defaultBrowserUA},
+		{"User-Agent": defaultBrowserUA, "Referer": origin + "/", "Origin": origin},
+		passthrough,
+	}
+	for i, hdr := range attempts {
+		up, err := http.NewRequestWithContext(ctx, http.MethodGet, tgt.String(), nil)
+		if err != nil {
+			return nil, false
+		}
+		for k, v := range hdr {
+			up.Header.Set(k, v)
+		}
+		got, err := proxyClient.Do(up)
+		if err != nil {
+			continue
+		}
+		if got.StatusCode < 400 {
+			b, _ := io.ReadAll(io.LimitReader(got.Body, 8<<20))
+			got.Body.Close()
+			return b, true
+		}
+		got.Body.Close()
+		if i == len(attempts)-1 {
+			log.Printf("serveSubtitle: upstream HTTP %d for %s (tried %d header sets)", got.StatusCode, tgt.String(), len(attempts))
+		}
+	}
+	return nil, false
 }
 
 var (

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"regexp"
@@ -473,15 +474,19 @@ func toVideoStream(info *sandboxv1.StreamInfo, mediaID, chapterID string) *model
 		vs.Sources = append(vs.Sources, src)
 	}
 
-	subs := info.GetSubtitles()
-	if len(subs) == 0 {
-		seen := map[string]bool{}
-		for _, s := range info.GetSources() {
-			for _, t := range s.GetSubtitles() {
-				if t.GetUrl() != "" && !seen[t.GetUrl()] {
-					seen[t.GetUrl()] = true
-					subs = append(subs, t)
-				}
+	var subs []*sandboxv1.SubtitleTrack
+	seen := map[string]bool{}
+	for _, t := range info.GetSubtitles() {
+		if t.GetUrl() != "" && !seen[t.GetUrl()] {
+			seen[t.GetUrl()] = true
+			subs = append(subs, t)
+		}
+	}
+	for _, s := range info.GetSources() {
+		for _, t := range s.GetSubtitles() {
+			if t.GetUrl() != "" && !seen[t.GetUrl()] {
+				seen[t.GetUrl()] = true
+				subs = append(subs, t)
 			}
 		}
 	}
@@ -489,7 +494,7 @@ func toVideoStream(info *sandboxv1.StreamInfo, mediaID, chapterID string) *model
 	for _, t := range subs {
 		vs.Subtitles = append(vs.Subtitles, &model.SubtitleTrack{
 			Lang: t.GetLang(),
-			URL:  proxyResourceURL("subtitle", mediaID, chapterID, t.GetUrl(), headers),
+			URL:  proxyResourceURL("subtitle", mediaID, chapterID, t.GetUrl(), nil),
 		})
 	}
 	audio := info.GetAudioTracks()
@@ -508,7 +513,18 @@ func toVideoStream(info *sandboxv1.StreamInfo, mediaID, chapterID string) *model
 			EndMs:   int32(ts.GetEndMs()),
 		})
 	}
+	log.Printf("videoStream chapter=%s: emitted %d subtitle(s), %d audio, %d skip; first sub lang=%q url=%q",
+		chapterID, len(vs.Subtitles), len(vs.AudioTracks), len(vs.SkipMarkers),
+		firstSubField(vs.Subtitles, func(s *model.SubtitleTrack) string { return s.Lang }),
+		firstSubField(vs.Subtitles, func(s *model.SubtitleTrack) string { return s.URL }))
 	return vs
+}
+
+func firstSubField(subs []*model.SubtitleTrack, f func(*model.SubtitleTrack) string) string {
+	if len(subs) == 0 {
+		return ""
+	}
+	return f(subs[0])
 }
 
 func toChapter(c sqlcgen.Chapter) *model.Chapter {

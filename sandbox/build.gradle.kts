@@ -46,6 +46,7 @@ dependencies {
     implementation("org.brotli:dec:0.1.2")
     implementation("com.squareup.okhttp3:logging-interceptor:5.4.0")
     implementation("org.jsoup:jsoup:1.17.2")
+    implementation("org.json:json:20240303")
 
     implementation("net.dongliu:apk-parser:2.6.10")
     implementation("com.android.tools.build:apksig:9.3.1")

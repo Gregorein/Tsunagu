@@ -712,7 +712,17 @@ func (s *Syncer) SetInLibrary(ctx context.Context, c *sandbox.Client, mediaID in
 		return s.q.AddMediaToLibrary(ctx, mediaID)
 	}
 
+	if err := s.q.RemoveMediaFromAllFolders(ctx, mediaID); err != nil {
+		return sqlcgen.Medium{}, fmt.Errorf("clear folders for media %d: %w", mediaID, err)
+	}
 	return s.q.RemoveMediaFromLibrary(ctx, mediaID)
+}
+
+func (s *Syncer) AddMediaToFolder(ctx context.Context, c *sandbox.Client, mediaID, folderID int64) error {
+	if _, err := s.SetInLibrary(ctx, c, mediaID, true); err != nil {
+		return fmt.Errorf("add media %d to library for foldering: %w", mediaID, err)
+	}
+	return s.q.AddMediaToFolder(ctx, sqlcgen.AddMediaToFolderParams{MediaID: mediaID, FolderID: folderID})
 }
 
 func (s *Syncer) MigrateMedia(ctx context.Context, c *sandbox.Client, fromMediaID int64, toPackageName, toExternalID string) (sqlcgen.Medium, error) {
@@ -790,6 +800,9 @@ func (s *Syncer) MigrateMedia(ctx context.Context, c *sandbox.Client, fromMediaI
 
 	if _, err := qtx.AddMediaToLibrary(ctx, newMedia.ID); err != nil {
 		return sqlcgen.Medium{}, fmt.Errorf("add target to library: %w", err)
+	}
+	if err := qtx.RemoveMediaFromAllFolders(ctx, fromMediaID); err != nil {
+		return sqlcgen.Medium{}, fmt.Errorf("clear source folders: %w", err)
 	}
 	if _, err := qtx.RemoveMediaFromLibrary(ctx, fromMediaID); err != nil {
 		return sqlcgen.Medium{}, fmt.Errorf("remove source from library: %w", err)

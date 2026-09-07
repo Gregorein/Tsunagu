@@ -470,11 +470,24 @@ class ExtensionServiceImpl(
         request: Sandbox.ImageRequest,
         responseObserver: StreamObserver<Sandbox.ImageData>,
     ) {
-        handle(responseObserver, request.extensionId) { source ->
-            val response = runBlocking {
-                source.client.newCall(GET(request.imageUrl, source.headers)).awaitSuccess()
+        val extension = registry.get(request.extensionId)
+        if (extension == null) {
+            responseObserver.onError(notFound(request.extensionId))
+            return
+        }
+        val (client, headers) = when (val s = extension.source) {
+            is HttpSource -> s.client to s.headers
+            is AnimeHttpSource -> s.client to s.headers
+            else -> {
+                responseObserver.onError(internal(IllegalStateException("extension ${request.extensionId} has no HTTP client")))
+                return
             }
-            response.use { resp ->
+        }
+        try {
+            val response = runBlocking {
+                client.newCall(GET(request.imageUrl, headers)).awaitSuccess()
+            }
+            val data = response.use { resp ->
                 val bytes = resp.body.bytes()
                 val contentType = resp.header("Content-Type") ?: "image/jpeg"
                 Sandbox.ImageData.newBuilder()
@@ -482,6 +495,11 @@ class ExtensionServiceImpl(
                     .setContentType(contentType)
                     .build()
             }
+            responseObserver.onNext(data)
+            responseObserver.onCompleted()
+        } catch (e: Throwable) {
+            logExtensionFailure(e)
+            responseObserver.onError(internal(e))
         }
     }
 

@@ -258,6 +258,15 @@ func (q *Queries) ListMediaInFolder(ctx context.Context, folderID int64) ([]Medi
 	return items, nil
 }
 
+const removeMediaFromAllFolders = `-- name: RemoveMediaFromAllFolders :exec
+DELETE FROM media_folders WHERE media_id = ?
+`
+
+func (q *Queries) RemoveMediaFromAllFolders(ctx context.Context, mediaID int64) error {
+	_, err := q.db.ExecContext(ctx, removeMediaFromAllFolders, mediaID)
+	return err
+}
+
 const removeMediaFromFolder = `-- name: RemoveMediaFromFolder :exec
 DELETE FROM media_folders WHERE media_id = ? AND folder_id = ?
 `

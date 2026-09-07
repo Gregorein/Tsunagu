@@ -392,7 +392,11 @@ func (r *mutationResolver) AddMediaToFolder(ctx context.Context, mediaID string,
 	if err != nil {
 		return false, err
 	}
-	return true, r.Q.AddMediaToFolder(ctx, sqlcgen.AddMediaToFolderParams{MediaID: mid, FolderID: fid})
+	c, err := r.Sc.Ensure(ctx)
+	if err != nil {
+		return false, err
+	}
+	return true, r.Sy.AddMediaToFolder(ctx, c, mid, fid)
 }
 
 func (r *mutationResolver) RemoveMediaFromFolder(ctx context.Context, mediaID string, folderID string) (bool, error) {

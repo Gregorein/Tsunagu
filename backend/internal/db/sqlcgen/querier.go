@@ -137,6 +137,7 @@ type Querier interface {
 	NextUnreadChapterByMediaIDs(ctx context.Context, mediaIds []int64) ([]Chapter, error)
 	QueryExtensions(ctx context.Context, arg QueryExtensionsParams) ([]Extension, error)
 	RemoveGenreFromMedia(ctx context.Context, arg RemoveGenreFromMediaParams) error
+	RemoveMediaFromAllFolders(ctx context.Context, mediaID int64) error
 	RemoveMediaFromFolder(ctx context.Context, arg RemoveMediaFromFolderParams) error
 	RemoveMediaFromFoldersByKind(ctx context.Context, arg RemoveMediaFromFoldersByKindParams) error
 	RemoveMediaFromLibrary(ctx context.Context, id int64) (Medium, error)
