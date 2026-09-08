@@ -192,6 +192,14 @@ func toTrackerLibraryEntry(e tracker.LibraryEntry) *model.TrackerLibraryEntry {
 		Progress: e.Progress,
 		Score:    e.Score,
 	}
+	if e.TitleRomaji != "" {
+		v := e.TitleRomaji
+		m.TitleRomaji = &v
+	}
+	if e.TitleEnglish != "" {
+		v := e.TitleEnglish
+		m.TitleEnglish = &v
+	}
 	if u := proxyImageURL(e.CoverURL); u != "" {
 		m.CoverURL = &u
 	}

@@ -529,6 +529,8 @@ type ComplexityRoot struct {
 		Score         func(childComplexity int) int
 		Status        func(childComplexity int) int
 		Title         func(childComplexity int) int
+		TitleEnglish  func(childComplexity int) int
+		TitleRomaji   func(childComplexity int) int
 		TotalChapters func(childComplexity int) int
 		URL           func(childComplexity int) int
 	}
@@ -3301,6 +3303,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.TrackerLibraryEntry.Title(childComplexity), true
+	case "TrackerLibraryEntry.titleEnglish":
+		if e.ComplexityRoot.TrackerLibraryEntry.TitleEnglish == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TrackerLibraryEntry.TitleEnglish(childComplexity), true
+	case "TrackerLibraryEntry.titleRomaji":
+		if e.ComplexityRoot.TrackerLibraryEntry.TitleRomaji == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TrackerLibraryEntry.TitleRomaji(childComplexity), true
 	case "TrackerLibraryEntry.totalChapters":
 		if e.ComplexityRoot.TrackerLibraryEntry.TotalChapters == nil {
 			break
@@ -4205,6 +4219,10 @@ func (ec *executionContext) childFields_TrackerLibraryEntry(ctx context.Context,
 		return ec.fieldContext_TrackerLibraryEntry_remoteId(ctx, field)
 	case "title":
 		return ec.fieldContext_TrackerLibraryEntry_title(ctx, field)
+	case "titleRomaji":
+		return ec.fieldContext_TrackerLibraryEntry_titleRomaji(ctx, field)
+	case "titleEnglish":
+		return ec.fieldContext_TrackerLibraryEntry_titleEnglish(ctx, field)
 	case "status":
 		return ec.fieldContext_TrackerLibraryEntry_status(ctx, field)
 	case "progress":
@@ -16214,6 +16232,52 @@ func (ec *executionContext) fieldContext_TrackerLibraryEntry_title(_ context.Con
 	return graphql.NewScalarFieldContext("TrackerLibraryEntry", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _TrackerLibraryEntry_titleRomaji(ctx context.Context, field graphql.CollectedField, obj *model.TrackerLibraryEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TrackerLibraryEntry_titleRomaji(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TitleRomaji, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TrackerLibraryEntry_titleRomaji(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TrackerLibraryEntry", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TrackerLibraryEntry_titleEnglish(ctx context.Context, field graphql.CollectedField, obj *model.TrackerLibraryEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TrackerLibraryEntry_titleEnglish(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TitleEnglish, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TrackerLibraryEntry_titleEnglish(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TrackerLibraryEntry", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _TrackerLibraryEntry_status(ctx context.Context, field graphql.CollectedField, obj *model.TrackerLibraryEntry) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -23016,6 +23080,16 @@ func (ec *executionContext) _TrackerLibraryEntry(ctx context.Context, sel ast.Se
 		case "title":
 			out.Values[i] = ec._TrackerLibraryEntry_title(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "titleRomaji":
+			out.Values[i] = ec._TrackerLibraryEntry_titleRomaji(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "titleEnglish":
+			out.Values[i] = ec._TrackerLibraryEntry_titleEnglish(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "status":

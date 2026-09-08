@@ -93,6 +93,8 @@ type SearchResult struct {
 type LibraryEntry struct {
 	RemoteID      string
 	Title         string
+	TitleRomaji   string
+	TitleEnglish  string
 	Status        string
 	Progress      float64
 	Score         float64

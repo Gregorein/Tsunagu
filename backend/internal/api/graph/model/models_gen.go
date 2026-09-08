@@ -462,6 +462,8 @@ type Tracker struct {
 type TrackerLibraryEntry struct {
 	RemoteID      string  `json:"remoteId"`
 	Title         string  `json:"title"`
+	TitleRomaji   *string `json:"titleRomaji,omitempty"`
+	TitleEnglish  *string `json:"titleEnglish,omitempty"`
 	Status        string  `json:"status"`
 	Progress      float64 `json:"progress"`
 	Score         float64 `json:"score"`

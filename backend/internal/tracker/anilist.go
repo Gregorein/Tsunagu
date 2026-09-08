@@ -360,6 +360,8 @@ func (a *AniList) ListLibrary(ctx context.Context, auth Auth, contentType string
 				entries = append(entries, LibraryEntry{
 					RemoteID:      strconv.Itoa(item.Media.ID),
 					Title:         item.Media.title(),
+					TitleRomaji:   item.Media.Title.Romaji,
+					TitleEnglish:  item.Media.Title.English,
 					Status:        status,
 					Progress:      item.Progress,
 					Score:         item.Score,

@@ -155,7 +155,8 @@ func TestListLibrary(t *testing.T) {
 											"type":     "MANGA",
 											"format":   "MANGA",
 											"title": map[string]any{
-												"romaji": "Dandadan",
+												"romaji":  "Dandadan",
+												"english": "Dan Da Dan",
 											},
 											"coverImage": map[string]any{
 												"large": "https://img.anilist.co/1003.jpg",
@@ -194,10 +195,10 @@ func TestListLibrary(t *testing.T) {
 		t.Fatalf("want 2 entries, got %d", len(entries))
 	}
 
-	if entries[0].RemoteID != "1001" || entries[0].Title != "Chainsaw Man" || entries[0].Progress != 24 || entries[0].Score != 8.5 {
+	if entries[0].RemoteID != "1001" || entries[0].Title != "Chainsaw Man" || entries[0].TitleEnglish != "Chainsaw Man" || entries[0].TitleRomaji != "Chainsaw Man" || entries[0].Progress != 24 || entries[0].Score != 8.5 {
 		t.Errorf("unexpected entry 0: %+v", entries[0])
 	}
-	if entries[1].RemoteID != "1003" || entries[1].Title != "Dandadan" || entries[1].TotalChapters != 150 {
+	if entries[1].RemoteID != "1003" || entries[1].Title != "Dan Da Dan" || entries[1].TitleRomaji != "Dandadan" || entries[1].TitleEnglish != "Dan Da Dan" || entries[1].TotalChapters != 150 {
 		t.Errorf("unexpected entry 1: %+v", entries[1])
 	}
 

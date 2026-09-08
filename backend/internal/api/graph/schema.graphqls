@@ -199,6 +199,8 @@ type TrackSearchResult {
 type TrackerLibraryEntry {
   remoteId: String!
   title: String!
+  titleRomaji: String
+  titleEnglish: String
   status: String!
   progress: Float!
   score: Float!
