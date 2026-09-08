@@ -1934,6 +1934,19 @@ func (r *queryResolver) TrackSearch(ctx context.Context, trackerKey string, quer
 	return out, nil
 }
 
+func (r *queryResolver) TrackerLibrary(ctx context.Context, trackerKey string, contentType model.ContentType, statuses []string) ([]*model.TrackerLibraryEntry, error) {
+	ct := contentTypeToString(&contentType)
+	res, err := r.Tk.ListLibrary(ctx, trackerKey, ct, statuses)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.TrackerLibraryEntry, 0, len(res))
+	for _, e := range res {
+		out = append(out, toTrackerLibraryEntry(e))
+	}
+	return out, nil
+}
+
 func (r *queryResolver) SearchMetadata(ctx context.Context, query string, contentType model.ContentType, provider *string) ([]*model.MetadataCandidate, error) {
 	prov := metadata.DefaultProvider
 	if provider != nil && *provider != "" {

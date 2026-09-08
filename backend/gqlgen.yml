@@ -51,7 +51,7 @@ resolver:
   filename_template: "{name}.resolvers.go"
 
   # Optional: turn on to not generate template comments above resolvers
-  # omit_template_comment: false
+  omit_template_comment: true
   # Optional: Pass in a path to a new gotpl template to use for generating resolvers
   # resolver_template: [your/path/resolver.gotpl]
   # Optional: turn on to avoid rewriting existing resolver(s) when generating

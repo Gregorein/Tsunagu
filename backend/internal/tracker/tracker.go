@@ -90,6 +90,18 @@ type SearchResult struct {
 	MediaType        string
 }
 
+type LibraryEntry struct {
+	RemoteID      string
+	Title         string
+	Status        string
+	Progress      float64
+	Score         float64
+	CoverURL      string
+	MediaType     string
+	URL           string
+	TotalChapters int
+}
+
 type Service interface {
 	Key() string
 	Name() string
@@ -101,6 +113,8 @@ type Service interface {
 	Exchange(ctx context.Context, pasted string) (Auth, error)
 
 	Search(ctx context.Context, a Auth, query, contentType string) ([]SearchResult, error)
+
+	ListLibrary(ctx context.Context, a Auth, contentType string, statuses []string) ([]LibraryEntry, error)
 
 	Bind(ctx context.Context, a Auth, remoteID string) (Track, error)
 

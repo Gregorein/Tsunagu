@@ -423,6 +423,10 @@ func (m *MAL) ScoreOptions(a Auth) []string {
 	return out
 }
 
+func (m *MAL) ListLibrary(ctx context.Context, a Auth, contentType string, statuses []string) ([]LibraryEntry, error) {
+	return nil, fmt.Errorf("library list not implemented for MyAnimeList yet")
+}
+
 func malStatusToCanonical(s string, rereading bool) Status {
 	switch s {
 	case "reading", "watching":

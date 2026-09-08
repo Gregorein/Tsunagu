@@ -7,6 +7,7 @@ result-*
 backend/bin/
 backend/tmp/
 backend/tsunagu-server
+backend/server
 *.exe
 *.test
 *.out
@@ -48,3 +49,5 @@ backend/tsunagu.db-wal
 /build/
 /dist/
 backend/media/
+
+.tools/

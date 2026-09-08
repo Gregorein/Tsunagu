@@ -196,6 +196,18 @@ type TrackSearchResult {
   mediaType: String
 }
 
+type TrackerLibraryEntry {
+  remoteId: String!
+  title: String!
+  status: String!
+  progress: Float!
+  score: Float!
+  coverUrl: String
+  mediaType: String
+  url: String
+  totalChapters: Int
+}
+
 type TrackLink {
   id: ID!
   mediaId: ID!
@@ -456,6 +468,8 @@ type Query {
   trackers: [Tracker!]!
 
   trackSearch(trackerKey: String!, query: String!, contentType: ContentType): [TrackSearchResult!]!
+
+  trackerLibrary(trackerKey: String!, contentType: ContentType!, statuses: [String!]): [TrackerLibraryEntry!]!
 
   searchMetadata(query: String!, contentType: ContentType!, provider: String): [MetadataCandidate!]!
 
