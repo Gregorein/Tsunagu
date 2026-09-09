@@ -51,3 +51,5 @@ backend/tsunagu.db-wal
 backend/media/
 
 .tools/
+
+*.code-workspace

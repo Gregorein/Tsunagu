@@ -118,6 +118,27 @@ func TestUnwrapLocalProxyURL(t *testing.T) {
 	if h["Referer"] != "https://anineko.to/" || h["User-Agent"] == "" || h["X"] != "y" {
 		t.Fatalf("headers = %#v", h)
 	}
+
+	m3u8 := "http://127.0.0.1:12345/m3u8?url=" + url.QueryEscape("https://cdn.example.com/ep/index.m3u8") +
+		"&referer=https://animepahe.ru/&useragent=Mozilla/5.0"
+	got, h = unwrapLocalProxyURL(m3u8, map[string]string{"X": "y"})
+	if got != "https://cdn.example.com/ep/index.m3u8" {
+		t.Fatalf("m3u8 url = %q", got)
+	}
+	if h["Referer"] != "https://animepahe.ru/" || h["User-Agent"] != "Mozilla/5.0" || h["X"] != "y" {
+		t.Fatalf("m3u8 headers = %#v", h)
+	}
+
+	localhostM3u8 := "http://localhost:9/m3u8?url=" + url.QueryEscape("https://cdn.example.com/x.m3u8")
+	if u, _ := unwrapLocalProxyURL(localhostM3u8, nil); u != "https://cdn.example.com/x.m3u8" {
+		t.Fatalf("localhost m3u8 url = %q", u)
+	}
+
+	remoteM3u8 := "http://cdn.example.com/m3u8?url=" + url.QueryEscape("https://cdn.example.com/x.m3u8")
+	if u, hh := unwrapLocalProxyURL(remoteM3u8, nil); u != remoteM3u8 || hh != nil {
+		t.Fatalf("non-localhost m3u8 should passthrough: %q", u)
+	}
+
 	if u, hh := unwrapLocalProxyURL("https://real.cdn/x.m3u8", nil); u != "https://real.cdn/x.m3u8" || hh != nil {
 		t.Fatalf("passthrough broke: %q", u)
 	}
