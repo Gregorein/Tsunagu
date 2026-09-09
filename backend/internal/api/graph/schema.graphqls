@@ -553,6 +553,8 @@ type Mutation {
 
   bindTrack(mediaId: ID!, trackerKey: String!, remoteId: String!): TrackLink!
 
+  createTrackerStub(trackerKey: String!, remoteId: String!, contentType: ContentType!, title: String!, coverUrl: String): Media!
+
   updateTrack(linkId: ID!, status: Int, score: Float, lastChapterRead: Float): TrackLink!
   unbindTrack(linkId: ID!): Boolean!
 

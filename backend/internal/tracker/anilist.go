@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,11 +17,20 @@ var (
 	anilistAPI      = "https://graphql.anilist.co"
 	anilistAuthBase = "https://anilist.co/api/v2/oauth/authorize"
 	anilistTokenTTL = 365 * 24 * time.Hour
+	anilistChunkGap = 400 * time.Millisecond
+	anilistListTTL  = 15 * time.Minute
 )
+
+type cachedLibraryEntry struct {
+	entry LibraryEntry
+	at    time.Time
+}
 
 type AniList struct {
 	clientID string
 	http     *http.Client
+	mu       sync.Mutex
+	listByID map[string]cachedLibraryEntry
 }
 
 func NewAniList(clientID string) *AniList {
@@ -377,9 +387,54 @@ func (a *AniList) ListLibrary(ctx context.Context, auth Auth, contentType string
 			break
 		}
 		chunk++
+		if anilistChunkGap > 0 {
+			select {
+			case <-ctx.Done():
+				return entries, ctx.Err()
+			case <-time.After(anilistChunkGap):
+			}
+		}
 	}
 
+	a.rememberList(entries)
 	return entries, nil
+}
+
+func (a *AniList) rememberList(entries []LibraryEntry) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.listByID == nil {
+		a.listByID = make(map[string]cachedLibraryEntry, len(entries))
+	}
+	now := time.Now()
+	for _, e := range entries {
+		if e.RemoteID == "" {
+			continue
+		}
+		a.listByID[e.RemoteID] = cachedLibraryEntry{entry: e, at: now}
+	}
+}
+
+func trackFromLibrary(e LibraryEntry) Track {
+	return Track{
+		RemoteID:        e.RemoteID,
+		Title:           e.Title,
+		URL:             e.URL,
+		TotalChapters:   e.TotalChapters,
+		Status:          statusFromAniList(e.Status),
+		Score:           e.Score,
+		LastChapterRead: e.Progress,
+	}
+}
+
+func (a *AniList) cachedTrack(remoteID string) (Track, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c, ok := a.listByID[remoteID]
+	if !ok || time.Since(c.at) > anilistListTTL {
+		return Track{}, false
+	}
+	return trackFromLibrary(c.entry), true
 }
 
 func (a *AniList) fetchMedia(ctx context.Context, auth Auth, remoteID string) (alMedia, error) {
@@ -428,6 +483,9 @@ func (a *AniList) trackFromMedia(m alMedia) Track {
 }
 
 func (a *AniList) Bind(ctx context.Context, auth Auth, remoteID string) (Track, error) {
+	if t, ok := a.cachedTrack(remoteID); ok {
+		return t, nil
+	}
 	m, err := a.fetchMedia(ctx, auth, remoteID)
 	if err != nil {
 		return Track{}, err

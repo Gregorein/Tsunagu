@@ -179,8 +179,13 @@ func TestListLibrary(t *testing.T) {
 	defer srv.Close()
 
 	origAPI := anilistAPI
+	origGap := anilistChunkGap
 	anilistAPI = srv.URL
-	defer func() { anilistAPI = origAPI }()
+	anilistChunkGap = 0
+	defer func() {
+		anilistAPI = origAPI
+		anilistChunkGap = origGap
+	}()
 
 	a := NewAniList("client-id")
 	auth := Auth{AccessToken: "token", Username: "testuser"}
@@ -209,5 +214,13 @@ func TestListLibrary(t *testing.T) {
 	}
 	if len(novelEntries) != 1 || novelEntries[0].RemoteID != "1002" {
 		t.Fatalf("want 1 novel entry (1002), got %+v", novelEntries)
+	}
+
+	track, err := a.Bind(context.Background(), auth, "1001")
+	if err != nil {
+		t.Fatalf("Bind from list cache: %v", err)
+	}
+	if track.RemoteID != "1001" || track.Title != "Chainsaw Man" || track.LastChapterRead != 24 {
+		t.Fatalf("cached bind track: %+v", track)
 	}
 }

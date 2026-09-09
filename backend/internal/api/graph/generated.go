@@ -262,6 +262,7 @@ type ComplexityRoot struct {
 		ClearStorageCategory      func(childComplexity int, key string) int
 		CreateDatabaseBackup      func(childComplexity int) int
 		CreateFolder              func(childComplexity int, name string, parentFolderID *string) int
+		CreateTrackerStub         func(childComplexity int, trackerKey string, remoteID string, contentType model.ContentType, title string, coverURL *string) int
 		DeleteDatabaseBackup      func(childComplexity int, name string) int
 		DeleteDownload            func(childComplexity int, mediaID string, chapterIds []string) int
 		DeleteFolder              func(childComplexity int, folderID string) int
@@ -652,6 +653,7 @@ type MutationResolver interface {
 	TrackerLogin(ctx context.Context, trackerKey string, token string) (*model.Tracker, error)
 	TrackerLogout(ctx context.Context, trackerKey string) (bool, error)
 	BindTrack(ctx context.Context, mediaID string, trackerKey string, remoteID string) (*model.TrackLink, error)
+	CreateTrackerStub(ctx context.Context, trackerKey string, remoteID string, contentType model.ContentType, title string, coverURL *string) (*model.Media, error)
 	UpdateTrack(ctx context.Context, linkID string, status *int32, score *float64, lastChapterRead *float64) (*model.TrackLink, error)
 	UnbindTrack(ctx context.Context, linkID string) (bool, error)
 	ResyncTrack(ctx context.Context, linkID string) (*model.TrackLink, error)
@@ -1749,6 +1751,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateFolder(childComplexity, args["name"].(string), args["parentFolderId"].(*string)), true
+	case "Mutation.createTrackerStub":
+		if e.ComplexityRoot.Mutation.CreateTrackerStub == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createTrackerStub_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateTrackerStub(childComplexity, args["trackerKey"].(string), args["remoteId"].(string), args["contentType"].(model.ContentType), args["title"].(string), args["coverUrl"].(*string)), true
 	case "Mutation.deleteDatabaseBackup":
 		if e.ComplexityRoot.Mutation.DeleteDatabaseBackup == nil {
 			break
@@ -4598,6 +4611,52 @@ func (ec *executionContext) field_Mutation_createFolder_args(ctx context.Context
 		return nil, err
 	}
 	args["parentFolderId"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_createTrackerStub_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "trackerKey",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["trackerKey"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "remoteId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["remoteId"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "contentType",
+		func(ctx context.Context, v any) (model.ContentType, error) {
+			return ec.unmarshalNContentType2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐContentType(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["contentType"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "title",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["title"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "coverUrl",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["coverUrl"] = arg4
 	return args, nil
 }
 
@@ -11795,6 +11854,50 @@ func (ec *executionContext) fieldContext_Mutation_bindTrack(ctx context.Context,
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_bindTrack_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createTrackerStub(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createTrackerStub(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateTrackerStub(ctx, fc.Args["trackerKey"].(string), fc.Args["remoteId"].(string), fc.Args["contentType"].(model.ContentType), fc.Args["title"].(string), fc.Args["coverUrl"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Media) graphql.Marshaler {
+			return ec.marshalNMedia2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐMedia(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createTrackerStub(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Media(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createTrackerStub_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -20917,6 +21020,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "bindTrack":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_bindTrack(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createTrackerStub":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createTrackerStub(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
