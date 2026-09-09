@@ -1085,7 +1085,12 @@ func decodeB64Any(s string) ([]byte, error) {
 
 func unwrapLocalProxyURL(raw string, headers map[string]string) (string, map[string]string) {
 	u, err := url.Parse(raw)
-	if err != nil || !strings.Contains(u.Path, "/proxy/") {
+	if err != nil {
+		return raw, headers
+	}
+	isProxy := strings.Contains(u.Path, "/proxy/")
+	isM3u8 := u.Path == "/m3u8" || strings.HasSuffix(u.Path, "/m3u8")
+	if !isProxy && !isM3u8 {
 		return raw, headers
 	}
 	switch u.Hostname() {
@@ -1094,22 +1099,47 @@ func unwrapLocalProxyURL(raw string, headers map[string]string) (string, map[str
 		return raw, headers
 	}
 	q := u.Query()
-	real, err := decodeB64Any(q.Get("url"))
-	if err != nil || len(real) == 0 {
+	if isProxy {
+		real, err := decodeB64Any(q.Get("url"))
+		if err != nil || len(real) == 0 {
+			return raw, headers
+		}
+		merged := map[string]string{}
+		for k, v := range headers {
+			merged[k] = v
+		}
+		if hb, err := decodeB64Any(q.Get("headers")); err == nil {
+			for _, line := range strings.Split(string(hb), "\n") {
+				if i := strings.IndexByte(line, ':'); i > 0 {
+					merged[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
+				}
+			}
+		}
+		return string(real), merged
+	}
+	realStr := q.Get("url")
+	if _, ok := publicHTTPURL(realStr); !ok {
+		if b, err := decodeB64Any(q.Get("url")); err == nil && len(b) > 0 {
+			realStr = string(b)
+		}
+	}
+	if _, ok := publicHTTPURL(realStr); !ok {
 		return raw, headers
 	}
 	merged := map[string]string{}
 	for k, v := range headers {
 		merged[k] = v
 	}
-	if hb, err := decodeB64Any(q.Get("headers")); err == nil {
-		for _, line := range strings.Split(string(hb), "\n") {
-			if i := strings.IndexByte(line, ':'); i > 0 {
-				merged[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
-			}
+	if v := q.Get("referer"); v != "" {
+		merged["Referer"] = v
+	}
+	for _, key := range []string{"useragent", "user-agent", "userAgent"} {
+		if v := q.Get(key); v != "" {
+			merged["User-Agent"] = v
+			break
 		}
 	}
-	return string(real), merged
+	return realStr, merged
 }
 
 func publicHTTPURL(raw string) (*url.URL, bool) {

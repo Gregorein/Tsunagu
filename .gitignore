@@ -48,3 +48,7 @@ backend/tsunagu.db-wal
 /build/
 /dist/
 backend/media/
+
+.tools/
+
+*.code-workspace
