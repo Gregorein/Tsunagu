@@ -196,6 +196,20 @@ type TrackSearchResult {
   mediaType: String
 }
 
+type TrackerLibraryEntry {
+  remoteId: String!
+  title: String!
+  titleRomaji: String
+  titleEnglish: String
+  status: String!
+  progress: Float!
+  score: Float!
+  coverUrl: String
+  mediaType: String
+  url: String
+  totalChapters: Int
+}
+
 type TrackLink {
   id: ID!
   mediaId: ID!
@@ -457,6 +471,8 @@ type Query {
 
   trackSearch(trackerKey: String!, query: String!, contentType: ContentType): [TrackSearchResult!]!
 
+  trackerLibrary(trackerKey: String!, contentType: ContentType!, statuses: [String!]): [TrackerLibraryEntry!]!
+
   searchMetadata(query: String!, contentType: ContentType!, provider: String): [MetadataCandidate!]!
 
   skipTimestamps(chapterId: ID!, episodeLengthMs: Int): [SkipMarker!]!
@@ -536,6 +552,8 @@ type Mutation {
   trackerLogout(trackerKey: String!): Boolean!
 
   bindTrack(mediaId: ID!, trackerKey: String!, remoteId: String!): TrackLink!
+
+  createTrackerStub(trackerKey: String!, remoteId: String!, contentType: ContentType!, title: String!, coverUrl: String): Media!
 
   updateTrack(linkId: ID!, status: Int, score: Float, lastChapterRead: Float): TrackLink!
   unbindTrack(linkId: ID!): Boolean!

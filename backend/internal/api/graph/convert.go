@@ -184,6 +184,40 @@ func toTrackSearchResult(r tracker.SearchResult) *model.TrackSearchResult {
 	return m
 }
 
+func toTrackerLibraryEntry(e tracker.LibraryEntry) *model.TrackerLibraryEntry {
+	m := &model.TrackerLibraryEntry{
+		RemoteID: e.RemoteID,
+		Title:    e.Title,
+		Status:   e.Status,
+		Progress: e.Progress,
+		Score:    e.Score,
+	}
+	if e.TitleRomaji != "" {
+		v := e.TitleRomaji
+		m.TitleRomaji = &v
+	}
+	if e.TitleEnglish != "" {
+		v := e.TitleEnglish
+		m.TitleEnglish = &v
+	}
+	if u := proxyImageURL(e.CoverURL); u != "" {
+		m.CoverURL = &u
+	}
+	if e.MediaType != "" {
+		v := e.MediaType
+		m.MediaType = &v
+	}
+	if e.URL != "" {
+		v := e.URL
+		m.URL = &v
+	}
+	if e.TotalChapters > 0 {
+		v := int32(e.TotalChapters)
+		m.TotalChapters = &v
+	}
+	return m
+}
+
 func toTrackLink(l sqlcgen.TrackerLink, trackerKey string) *model.TrackLink {
 	return &model.TrackLink{
 		ID:              strconv.FormatInt(l.ID, 10),

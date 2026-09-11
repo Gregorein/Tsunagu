@@ -430,6 +430,15 @@ func sandboxErrorPresenter(ctx context.Context, e error) *gqlerror.Error {
 		}
 	}
 	if st == nil {
+		msg := gqlErr.Message
+		if strings.Contains(msg, "DeadlineExceeded") || strings.Contains(strings.ToLower(msg), "deadline exceeded") {
+			if gqlErr.Extensions == nil {
+				gqlErr.Extensions = map[string]any{}
+			}
+			gqlErr.Extensions["code"] = "SOURCE_NETWORK"
+			gqlErr.Extensions["grpc"] = "DeadlineExceeded"
+			gqlErr.Message = "context deadline exceeded"
+		}
 		return gqlErr
 	}
 
@@ -444,6 +453,8 @@ func sandboxErrorPresenter(ctx context.Context, e error) *gqlerror.Error {
 			code = "SOURCE_NOT_FOUND"
 		case codes.Unavailable:
 			code = "SOURCE_UNAVAILABLE"
+		case codes.DeadlineExceeded, codes.Canceled:
+			code = "SOURCE_NETWORK"
 		case codes.ResourceExhausted:
 			code = "SOURCE_RATE_LIMITED"
 		case codes.FailedPrecondition:

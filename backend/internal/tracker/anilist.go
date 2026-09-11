@@ -9,18 +9,28 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
-const (
+var (
 	anilistAPI      = "https://graphql.anilist.co"
 	anilistAuthBase = "https://anilist.co/api/v2/oauth/authorize"
 	anilistTokenTTL = 365 * 24 * time.Hour
+	anilistChunkGap = 400 * time.Millisecond
+	anilistListTTL  = 15 * time.Minute
 )
+
+type cachedLibraryEntry struct {
+	entry LibraryEntry
+	at    time.Time
+}
 
 type AniList struct {
 	clientID string
 	http     *http.Client
+	mu       sync.Mutex
+	listByID map[string]cachedLibraryEntry
 }
 
 func NewAniList(clientID string) *AniList {
@@ -112,6 +122,7 @@ type alMedia struct {
 	Episodes int    `json:"episodes"`
 	Type     string `json:"type"`
 	Status   string `json:"status"`
+	Format   string `json:"format"`
 	Title    struct {
 		Romaji  string `json:"romaji"`
 		English string `json:"english"`
@@ -233,6 +244,199 @@ func (a *AniList) Search(ctx context.Context, auth Auth, q, contentType string) 
 	return res, nil
 }
 
+type alMediaListEntryItem struct {
+	ID       int     `json:"id"`
+	Status   string  `json:"status"`
+	Score    float64 `json:"score"`
+	Progress float64 `json:"progress"`
+	Media    alMedia `json:"media"`
+}
+
+type alMediaListGroup struct {
+	Name         string                 `json:"name"`
+	IsCustomList bool                   `json:"isCustomList"`
+	Status       string                 `json:"status"`
+	Entries      []alMediaListEntryItem `json:"entries"`
+}
+
+type alMediaListCollection struct {
+	HasNextChunk bool               `json:"hasNextChunk"`
+	Lists        []alMediaListGroup `json:"lists"`
+}
+
+const alListCollectionDoc = `query($userName: String, $type: MediaType, $statusIn: [MediaListStatus], $chunk: Int) {
+  MediaListCollection(userName: $userName, type: $type, status_in: $statusIn, chunk: $chunk, perChunk: 500) {
+    hasNextChunk
+    lists {
+      name
+      isCustomList
+      status
+      entries {
+        id
+        status
+        score
+        progress
+        media {
+          id
+          siteUrl
+          chapters
+          episodes
+          type
+          format
+          status
+          title { romaji english native }
+          coverImage { large }
+        }
+      }
+    }
+  }
+}`
+
+func (a *AniList) ListLibrary(ctx context.Context, auth Auth, contentType string, statuses []string) ([]LibraryEntry, error) {
+	if auth.Username == "" {
+		var out struct {
+			Viewer struct {
+				Name string `json:"name"`
+			} `json:"Viewer"`
+		}
+		if err := a.query(ctx, auth.AccessToken, `query { Viewer { name } }`, nil, &out); err == nil && out.Viewer.Name != "" {
+			auth.Username = out.Viewer.Name
+		} else {
+			return nil, fmt.Errorf("no username associated with AniList account")
+		}
+	}
+
+	alType := "MANGA"
+	if strings.EqualFold(contentType, "anime") {
+		alType = "ANIME"
+	}
+
+	var statusIn []string
+	for _, s := range statuses {
+		s = strings.ToUpper(strings.TrimSpace(s))
+		if s != "" {
+			statusIn = append(statusIn, s)
+		}
+	}
+
+	var entries []LibraryEntry
+	seen := make(map[int]bool)
+	chunk := 1
+	const maxChunks = 50
+
+	for chunk <= maxChunks {
+		vars := map[string]any{
+			"userName": auth.Username,
+			"type":     alType,
+			"chunk":    chunk,
+		}
+		if len(statusIn) > 0 {
+			vars["statusIn"] = statusIn
+		}
+
+		var out struct {
+			MediaListCollection *alMediaListCollection `json:"MediaListCollection"`
+		}
+		if err := a.query(ctx, auth.AccessToken, alListCollectionDoc, vars, &out); err != nil {
+			return nil, err
+		}
+		if out.MediaListCollection == nil {
+			break
+		}
+
+		for _, list := range out.MediaListCollection.Lists {
+			for _, item := range list.Entries {
+				if item.Media.ID == 0 || seen[item.Media.ID] {
+					continue
+				}
+				if strings.EqualFold(contentType, "novel") && !strings.EqualFold(item.Media.Format, "NOVEL") {
+					continue
+				}
+				if strings.EqualFold(contentType, "manga") && strings.EqualFold(item.Media.Format, "NOVEL") {
+					continue
+				}
+				seen[item.Media.ID] = true
+
+				totalCount := item.Media.Chapters
+				if item.Media.Type == "ANIME" {
+					totalCount = item.Media.Episodes
+				}
+
+				status := item.Status
+				if status == "" {
+					status = list.Status
+				}
+
+				entries = append(entries, LibraryEntry{
+					RemoteID:      strconv.Itoa(item.Media.ID),
+					Title:         item.Media.title(),
+					TitleRomaji:   item.Media.Title.Romaji,
+					TitleEnglish:  item.Media.Title.English,
+					Status:        status,
+					Progress:      item.Progress,
+					Score:         item.Score,
+					CoverURL:      item.Media.CoverImage.Large,
+					MediaType:     item.Media.Type,
+					URL:           item.Media.SiteURL,
+					TotalChapters: totalCount,
+				})
+			}
+		}
+
+		if !out.MediaListCollection.HasNextChunk {
+			break
+		}
+		chunk++
+		if anilistChunkGap > 0 {
+			select {
+			case <-ctx.Done():
+				return entries, ctx.Err()
+			case <-time.After(anilistChunkGap):
+			}
+		}
+	}
+
+	a.rememberList(entries)
+	return entries, nil
+}
+
+func (a *AniList) rememberList(entries []LibraryEntry) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.listByID == nil {
+		a.listByID = make(map[string]cachedLibraryEntry, len(entries))
+	}
+	now := time.Now()
+	for _, e := range entries {
+		if e.RemoteID == "" {
+			continue
+		}
+		a.listByID[e.RemoteID] = cachedLibraryEntry{entry: e, at: now}
+	}
+}
+
+func trackFromLibrary(e LibraryEntry) Track {
+	return Track{
+		RemoteID:        e.RemoteID,
+		Title:           e.Title,
+		URL:             e.URL,
+		TotalChapters:   e.TotalChapters,
+		Status:          statusFromAniList(e.Status),
+		Score:           e.Score,
+		LastChapterRead: e.Progress,
+	}
+}
+
+func (a *AniList) cachedTrack(remoteID string) (Track, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c, ok := a.listByID[remoteID]
+	if !ok || time.Since(c.at) > anilistListTTL {
+		return Track{}, false
+	}
+	return trackFromLibrary(c.entry), true
+}
+
 func (a *AniList) fetchMedia(ctx context.Context, auth Auth, remoteID string) (alMedia, error) {
 	id, err := strconv.Atoi(remoteID)
 	if err != nil {
@@ -279,6 +483,9 @@ func (a *AniList) trackFromMedia(m alMedia) Track {
 }
 
 func (a *AniList) Bind(ctx context.Context, auth Auth, remoteID string) (Track, error) {
+	if t, ok := a.cachedTrack(remoteID); ok {
+		return t, nil
+	}
 	m, err := a.fetchMedia(ctx, auth, remoteID)
 	if err != nil {
 		return Track{}, err

@@ -146,6 +146,15 @@ func (m *Manager) Search(ctx context.Context, key, query, contentType string) ([
 	return res, m.checkReauth(ctx, acct, err)
 }
 
+func (m *Manager) ListLibrary(ctx context.Context, key, contentType string, statuses []string) ([]LibraryEntry, error) {
+	acct, svc, auth, err := m.load(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	res, err := svc.ListLibrary(ctx, auth, contentType, statuses)
+	return res, m.checkReauth(ctx, acct, err)
+}
+
 func (m *Manager) Bind(ctx context.Context, key string, mediaID int64, remoteID string) (sqlcgen.TrackerLink, error) {
 	acct, svc, auth, err := m.load(ctx, key)
 	if err != nil {

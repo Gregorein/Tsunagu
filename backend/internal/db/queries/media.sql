@@ -94,7 +94,7 @@ ORDER BY m.title;
 SELECT * FROM media WHERE extension_id IS NULL AND external_id = ?;
 
 -- name: ListLocalMedia :many
-SELECT * FROM media WHERE extension_id IS NULL ORDER BY title;
+SELECT * FROM media WHERE extension_id IS NULL AND extension_name = 'Local' ORDER BY title;
 
 -- name: CreateLocalMedia :one
 INSERT INTO media (
@@ -103,6 +103,22 @@ INSERT INTO media (
 ) VALUES (
     NULL, 'Local', ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 )
+RETURNING *;
+
+-- name: CreateSourcelessMedia :one
+INSERT INTO media (
+    extension_id, extension_name, external_id, content_type, title,
+    cover_path, added_at, details_fetched_at
+) VALUES (
+    NULL, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+)
+RETURNING *;
+
+-- name: UpdateSourcelessMedia :one
+UPDATE media SET
+    title = ?,
+    cover_path = COALESCE(NULLIF(?, ''), cover_path)
+WHERE id = ?
 RETURNING *;
 
 -- name: UpdateLocalMedia :one

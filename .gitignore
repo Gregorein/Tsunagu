@@ -7,6 +7,7 @@ result-*
 backend/bin/
 backend/tmp/
 backend/tsunagu-server
+backend/server
 *.exe
 *.test
 *.out
