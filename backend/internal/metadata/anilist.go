@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"tsunagu/backend/internal/anilistrl"
 )
 
 const anilistAPI = "https://graphql.anilist.co"
@@ -28,35 +30,48 @@ func NewAniList() *AniList {
 func (a *AniList) Key() string { return "anilist" }
 
 func (a *AniList) query(ctx context.Context, doc string, vars map[string]any, out any) error {
-	body, _ := json.Marshal(map[string]any{"query": doc, "variables": vars})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, anilistAPI, bytes.NewReader(body))
-	if err != nil {
-		return err
+	for attempt := 0; ; attempt++ {
+		if err := anilistrl.Wait(ctx); err != nil {
+			return err
+		}
+		body, _ := json.Marshal(map[string]any{"query": doc, "variables": vars})
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, anilistAPI, bytes.NewReader(body))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		resp, err := a.http.Do(req)
+		if err != nil {
+			return err
+		}
+		raw, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			n, _ := strconv.Atoi(strings.TrimSpace(resp.Header.Get("Retry-After")))
+			anilistrl.Backoff(n)
+			if attempt == 0 {
+				continue
+			}
+			return fmt.Errorf("anilist: %s: %s", resp.Status, snip(string(raw), 200))
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("anilist: %s: %s", resp.Status, snip(string(raw), 200))
+		}
+		var env struct {
+			Data   json.RawMessage `json:"data"`
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
+		}
+		if err := json.Unmarshal(raw, &env); err != nil {
+			return fmt.Errorf("anilist: decode: %w", err)
+		}
+		if len(env.Errors) > 0 {
+			return fmt.Errorf("anilist: %s", env.Errors[0].Message)
+		}
+		return json.Unmarshal(env.Data, out)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	resp, err := a.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("anilist: %s: %s", resp.Status, snip(string(raw), 200))
-	}
-	var env struct {
-		Data   json.RawMessage `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return fmt.Errorf("anilist: decode: %w", err)
-	}
-	if len(env.Errors) > 0 {
-		return fmt.Errorf("anilist: %s", env.Errors[0].Message)
-	}
-	return json.Unmarshal(env.Data, out)
 }
 
 const mediaSelection = `

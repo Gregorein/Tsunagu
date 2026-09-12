@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"tsunagu/backend/internal/db/sqlcgen"
 )
@@ -87,7 +86,7 @@ func (m *Manager) EnrichLibrary(ctx context.Context) {
 		return
 	}
 	log.Printf("metadata backfill: %d unmatched media, working through them (~%dm)",
-		len(ids), len(ids)*800/60000+1)
+		len(ids), len(ids)*1500/60000+1)
 	matched := 0
 	for i, id := range ids {
 		if ctx.Err() != nil {
@@ -103,11 +102,6 @@ func (m *Manager) EnrichLibrary(ctx context.Context) {
 		}
 		if (i+1)%50 == 0 {
 			log.Printf("metadata backfill: %d/%d checked, %d matched", i+1, len(ids), matched)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(800 * time.Millisecond):
 		}
 	}
 	log.Printf("metadata backfill: done -- matched %d/%d", matched, len(ids))
@@ -130,11 +124,6 @@ func (m *Manager) refreshSparseTags(ctx context.Context) {
 		}
 		if _, err := m.Apply(ctx, id, DefaultProvider, link.ProviderID); err != nil {
 			log.Printf("metadata backfill: refresh tags for media %d: %v", id, err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(800 * time.Millisecond):
 		}
 	}
 }

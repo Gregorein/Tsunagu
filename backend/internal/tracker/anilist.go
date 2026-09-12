@@ -11,13 +11,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"tsunagu/backend/internal/anilistrl"
 )
 
 var (
 	anilistAPI      = "https://graphql.anilist.co"
 	anilistAuthBase = "https://anilist.co/api/v2/oauth/authorize"
 	anilistTokenTTL = 365 * 24 * time.Hour
-	anilistChunkGap = 400 * time.Millisecond
 	anilistListTTL  = 15 * time.Minute
 )
 
@@ -52,41 +53,58 @@ func (a *AniList) AuthURL() string {
 }
 
 func (a *AniList) query(ctx context.Context, token, doc string, vars map[string]any, out any) error {
-	body, _ := json.Marshal(map[string]any{"query": doc, "variables": vars})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, anilistAPI, bytes.NewReader(body))
-	if err != nil {
-		return err
+	for attempt := 0; ; attempt++ {
+		if err := anilistrl.Wait(ctx); err != nil {
+			return err
+		}
+		body, _ := json.Marshal(map[string]any{"query": doc, "variables": vars})
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, anilistAPI, bytes.NewReader(body))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := a.http.Do(req)
+		if err != nil {
+			return err
+		}
+		raw, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			anilistrl.Backoff(retryAfterSeconds(resp))
+			if attempt == 0 {
+				continue
+			}
+			return fmt.Errorf("anilist: %s: %s", resp.Status, truncate(string(raw), 200))
+		}
+		if resp.StatusCode == http.StatusUnauthorized {
+			return ErrReauth
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("anilist: %s: %s", resp.Status, truncate(string(raw), 200))
+		}
+		var env struct {
+			Data   json.RawMessage `json:"data"`
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
+		}
+		if err := json.Unmarshal(raw, &env); err != nil {
+			return fmt.Errorf("anilist: decode: %w", err)
+		}
+		if len(env.Errors) > 0 {
+			return fmt.Errorf("anilist: %s", env.Errors[0].Message)
+		}
+		return json.Unmarshal(env.Data, out)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := a.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode == http.StatusUnauthorized {
-		return ErrReauth
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("anilist: %s: %s", resp.Status, truncate(string(raw), 200))
-	}
-	var env struct {
-		Data   json.RawMessage `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return fmt.Errorf("anilist: decode: %w", err)
-	}
-	if len(env.Errors) > 0 {
-		return fmt.Errorf("anilist: %s", env.Errors[0].Message)
-	}
-	return json.Unmarshal(env.Data, out)
+}
+
+func retryAfterSeconds(resp *http.Response) int {
+	n, _ := strconv.Atoi(strings.TrimSpace(resp.Header.Get("Retry-After")))
+	return n
 }
 
 func (a *AniList) Exchange(ctx context.Context, pasted string) (Auth, error) {
@@ -387,13 +405,6 @@ func (a *AniList) ListLibrary(ctx context.Context, auth Auth, contentType string
 			break
 		}
 		chunk++
-		if anilistChunkGap > 0 {
-			select {
-			case <-ctx.Done():
-				return entries, ctx.Err()
-			case <-time.After(anilistChunkGap):
-			}
-		}
 	}
 
 	a.rememberList(entries)

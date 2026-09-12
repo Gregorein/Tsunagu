@@ -179,12 +179,9 @@ func TestListLibrary(t *testing.T) {
 	defer srv.Close()
 
 	origAPI := anilistAPI
-	origGap := anilistChunkGap
 	anilistAPI = srv.URL
-	anilistChunkGap = 0
 	defer func() {
 		anilistAPI = origAPI
-		anilistChunkGap = origGap
 	}()
 
 	a := NewAniList("client-id")
