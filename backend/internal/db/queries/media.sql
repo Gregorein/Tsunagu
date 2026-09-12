@@ -117,7 +117,7 @@ RETURNING *;
 -- name: UpdateSourcelessMedia :one
 UPDATE media SET
     title = ?,
-    cover_path = COALESCE(NULLIF(?, ''), cover_path)
+    cover_path = COALESCE(sqlc.narg('cover_path'), cover_path)
 WHERE id = ?
 RETURNING *;
 

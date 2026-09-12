@@ -430,13 +430,11 @@ func sandboxErrorPresenter(ctx context.Context, e error) *gqlerror.Error {
 		}
 	}
 	if st == nil {
-		msg := gqlErr.Message
-		if strings.Contains(msg, "DeadlineExceeded") || strings.Contains(strings.ToLower(msg), "deadline exceeded") {
+		if errors.Is(e, context.DeadlineExceeded) || errors.Is(e, context.Canceled) {
 			if gqlErr.Extensions == nil {
 				gqlErr.Extensions = map[string]any{}
 			}
 			gqlErr.Extensions["code"] = "SOURCE_NETWORK"
-			gqlErr.Extensions["grpc"] = "DeadlineExceeded"
 			gqlErr.Message = "context deadline exceeded"
 		}
 		return gqlErr

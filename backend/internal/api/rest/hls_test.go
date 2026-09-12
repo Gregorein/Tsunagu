@@ -52,6 +52,32 @@ func TestPublicHTTPURL(t *testing.T) {
 	}
 }
 
+func TestStreamHTTPURL(t *testing.T) {
+	ok := []string{
+		"https://cdn.example.com/a.m3u8",
+		"http://127.0.0.1:45221/pl/1",
+		"http://[::1]:52344/seg/0.ts",
+	}
+	bad := []string{
+		"http://127.0.0.1/x",         // no port
+		"http://127.0.0.1:80/x",      // privileged port
+		"http://127.0.0.1:6007/x",    // our HTTP API
+		"http://127.0.0.1:50051/x",   // sandbox gRPC
+		"http://192.168.1.10:9000/x", // private, not loopback
+		"http://localhost:45221/x",   // hostname, not an IP literal
+	}
+	for _, u := range ok {
+		if _, good := streamHTTPURL(u); !good {
+			t.Errorf("want accept %q", u)
+		}
+	}
+	for _, u := range bad {
+		if _, good := streamHTTPURL(u); good {
+			t.Errorf("want reject %q", u)
+		}
+	}
+}
+
 func TestRewriteDASHManifest(t *testing.T) {
 	man, _ := url.Parse("https://cdn.example.com/anime/x/index.mpd")
 	in := `<?xml version="1.0"?>

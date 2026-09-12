@@ -1143,17 +1143,6 @@ func (r *mutationResolver) BindTrack(ctx context.Context, mediaID string, tracke
 	return toTrackLink(link, trackerKey), nil
 }
 
-func trackerStubLabel(key string) string {
-	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "anilist":
-		return "AniList"
-	case "mal", "myanimelist":
-		return "MyAnimeList"
-	default:
-		return strings.TrimSpace(key)
-	}
-}
-
 func (r *mutationResolver) CreateTrackerStub(ctx context.Context, trackerKey string, remoteID string, contentType model.ContentType, title string, coverURL *string) (*model.Media, error) {
 	key := strings.ToLower(strings.TrimSpace(trackerKey))
 	rid := strings.TrimSpace(remoteID)
@@ -1196,9 +1185,9 @@ func (r *mutationResolver) CreateTrackerStub(ctx context.Context, trackerKey str
 			return nil, fmt.Errorf("external id %s is already used by local media", externalID)
 		}
 		row, err = r.Q.UpdateSourcelessMedia(ctx, sqlcgen.UpdateSourcelessMediaParams{
-			Title:  name,
-			NULLIF: cover,
-			ID:     existing.ID,
+			Title:     name,
+			CoverPath: sql.NullString{String: cover, Valid: cover != ""},
+			ID:        existing.ID,
 		})
 		if err != nil {
 			return nil, err

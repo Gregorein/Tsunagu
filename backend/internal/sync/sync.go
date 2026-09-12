@@ -223,7 +223,7 @@ func (s *Syncer) applyRepoIndex(ctx context.Context, repoID int64, parsed []repo
 			Name:         ext.Name,
 			Version:      ext.VersionName,
 			ContentType:  contentType,
-			Lang:         ext.Lang,
+			Lang:         strings.ToLower(strings.TrimSpace(ext.Lang)),
 			IconUrl:      nullString(ext.IconURL),
 			ApkUrl:       ext.ApkURL,
 			JarUrl:       nullString(ext.JarURL),
@@ -335,7 +335,7 @@ func (s *Syncer) InstallExternalExtension(ctx context.Context, c *sandbox.Client
 
 		Version:     "unknown",
 		ContentType: contentType,
-		Lang:        meta.Lang,
+		Lang:        strings.ToLower(strings.TrimSpace(meta.Lang)),
 	})
 	if err != nil {
 		return sqlcgen.Extension{}, fmt.Errorf("upsert extension: %w", err)
@@ -417,7 +417,7 @@ func (s *Syncer) QueryExtensions(ctx context.Context, q ExtensionQuery) ([]sqlcg
 	}
 	lang := sql.NullString{}
 	if q.Lang != "" {
-		lang = sql.NullString{String: q.Lang, Valid: true}
+		lang = sql.NullString{String: strings.ToLower(strings.TrimSpace(q.Lang)), Valid: true}
 	}
 	installed := sql.NullBool{}
 	if q.Installed != nil {

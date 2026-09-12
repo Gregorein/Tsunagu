@@ -49,6 +49,9 @@ var migration0009 string
 //go:embed migrations/0010_folder_library_invariant.sql
 var migration0010 string
 
+//go:embed migrations/0011_normalize_extension_lang.sql
+var migration0011 string
+
 var migrations = []struct {
 	name string
 	sql  string
@@ -63,6 +66,7 @@ var migrations = []struct {
 	{"0008_app_settings.sql", migration0008},
 	{"0009_content_filter.sql", migration0009},
 	{"0010_folder_library_invariant.sql", migration0010},
+	{"0011_normalize_extension_lang.sql", migration0011},
 }
 
 func Open(path string) (*sql.DB, error) {

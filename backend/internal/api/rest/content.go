@@ -247,7 +247,7 @@ func (h *ContentHandler) serveVideo(w http.ResponseWriter, r *http.Request, chap
 	streamURL, headers = unwrapLocalProxyURL(streamURL, headers)
 
 	if looksHLS(streamURL) {
-		tgt, ok := publicHTTPURL(streamURL)
+		tgt, ok := streamHTTPURL(streamURL)
 		if !ok {
 			log.Printf("serveVideo chapter=%d: hls url rejected: %q", chapterID, streamURL)
 			http.Error(w, "stream url rejected", http.StatusBadGateway)
@@ -258,7 +258,7 @@ func (h *ContentHandler) serveVideo(w http.ResponseWriter, r *http.Request, chap
 	}
 
 	if looksDASH(streamURL) {
-		tgt, ok := publicHTTPURL(streamURL)
+		tgt, ok := streamHTTPURL(streamURL)
 		if !ok {
 			log.Printf("serveVideo chapter=%d: dash url rejected: %q", chapterID, streamURL)
 			http.Error(w, "stream url rejected", http.StatusBadGateway)
@@ -324,7 +324,7 @@ func classifyStream(rawURL string) string {
 }
 
 func verifyStreamURL(ctx context.Context, rawURL string, headers map[string]string) (int, error) {
-	u, ok := publicHTTPURL(rawURL)
+	u, ok := streamHTTPURL(rawURL)
 	if !ok {
 		return 0, fmt.Errorf("stream url rejected: %q", rawURL)
 	}
@@ -488,18 +488,22 @@ func (h *ContentHandler) runProbe(ctx context.Context, chapterID int64, onStage 
 
 	var lastErr error
 	var lastStatus int
-	for _, c := range candidates {
+	for i, c := range candidates {
 		streamURL, headers := unwrapLocalProxyURL(c.url, c.headers)
 		streamType := classifyStream(streamURL)
 
 		status, verr := verifyStreamURL(ctx, streamURL, headers)
 		if verr != nil {
 			lastErr, lastStatus = verr, status
+			log.Printf("probeVideo chapter=%d: candidate %d/%d (%s) verify failed: status=%d %v url=%q",
+				chapterID, i+1, len(candidates), streamType, status, verr, streamURL)
 			continue
 		}
 		if streamType == "hls" {
 			if cerr := hlsContentCheck(ctx, streamURL, headers, 2); cerr != nil {
 				lastErr, lastStatus = cerr, status
+				log.Printf("probeVideo chapter=%d: candidate %d/%d hls content check failed: %v url=%q",
+					chapterID, i+1, len(candidates), cerr, streamURL)
 				continue
 			}
 		}
@@ -519,7 +523,7 @@ func (h *ContentHandler) runProbe(ctx context.Context, chapterID int64, onStage 
 }
 
 func hlsContentCheck(ctx context.Context, rawURL string, headers map[string]string, depth int) error {
-	u, ok := publicHTTPURL(rawURL)
+	u, ok := streamHTTPURL(rawURL)
 	if !ok {
 		return fmt.Errorf("stream url rejected: %q", rawURL)
 	}
@@ -568,7 +572,7 @@ func (h *ContentHandler) serveHLS(w http.ResponseWriter, r *http.Request, chapte
 		http.Error(w, "bad hls target", http.StatusBadRequest)
 		return
 	}
-	tgt, ok := publicHTTPURL(string(raw))
+	tgt, ok := streamHTTPURL(string(raw))
 	if !ok {
 		http.Error(w, "hls target rejected", http.StatusBadRequest)
 		return
@@ -1017,7 +1021,7 @@ func (h *ContentHandler) serveDASH(w http.ResponseWriter, r *http.Request, rest 
 		http.Error(w, "bad dash segment", http.StatusBadRequest)
 		return
 	}
-	tgt, ok := publicHTTPURL(baseURL.ResolveReference(seg).String())
+	tgt, ok := streamHTTPURL(baseURL.ResolveReference(seg).String())
 	if !ok {
 		http.Error(w, "dash target rejected", http.StatusBadRequest)
 		return
@@ -1162,6 +1166,39 @@ func publicHTTPURL(raw string) (*url.URL, bool) {
 		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
 			return nil, false
 		}
+	}
+	return u, true
+}
+
+var reservedLoopbackPorts = map[string]bool{"6007": true, "50051": true}
+
+// streamHTTPURL is publicHTTPURL for video/HLS/DASH targets. Some anime extensions
+// hand back URLs pointing at their own in-sandbox HLS proxy on a loopback
+// ephemeral port (e.g. http://127.0.0.1:45221/pl/1); that endpoint is trusted and
+// reachable, so loopback is allowed for it while every other private range and our
+// own service ports stay blocked.
+func streamHTTPURL(raw string) (*url.URL, bool) {
+	if u, ok := publicHTTPURL(raw); ok {
+		return u, true
+	}
+	raw = strings.TrimSpace(raw)
+	if !strings.Contains(raw, "://") && !strings.HasPrefix(raw, "//") {
+		return nil, false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, false
+	}
+	ip := net.ParseIP(u.Hostname())
+	if ip == nil || !ip.IsLoopback() {
+		return nil, false
+	}
+	port := u.Port()
+	if port == "" || reservedLoopbackPorts[port] {
+		return nil, false
+	}
+	if n, perr := strconv.Atoi(port); perr != nil || n < 1024 {
+		return nil, false
 	}
 	return u, true
 }
