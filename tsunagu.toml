@@ -44,6 +44,12 @@ idle_timeout_minutes = 15
 # How often background tracker sync runs, in hours (0 = never).  [FULL_RESTART]
 # tracker_poll_hours = 6
 
+# How often an automatic database backup is taken, in hours (0 = never).  [FULL_RESTART]
+# backup_interval_hours = 24
+
+# How many automatic backups to keep before pruning the oldest.  [FULL_RESTART]
+# backup_retention_count = 7
+
 # AniList OAuth client id.  [FULL_RESTART]
 # anilist_client_id = "49724"
 

@@ -29,6 +29,8 @@ type Config struct {
 	MetadataBackfill     bool
 	IdleTimeoutMin       int
 	TrackerPollHours     int
+	BackupIntervalHours  int
+	BackupRetentionCount int
 	PublicURL            string
 	AniListClientID      string
 	MALClientID          string
@@ -60,6 +62,8 @@ func Defaults() Config {
 		MetadataBackfill:     true,
 		IdleTimeoutMin:       15,
 		TrackerPollHours:     6,
+		BackupIntervalHours:  24,
+		BackupRetentionCount: 7,
 		PublicURL:            "http://localhost:6007",
 		AniListClientID:      "49724",
 		MALClientID:          "611c821aee93c5e51411bfa86ca32597",

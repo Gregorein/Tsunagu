@@ -59,8 +59,10 @@ type Querier interface {
 	GetChapterByMediaAndExternalID(ctx context.Context, arg GetChapterByMediaAndExternalIDParams) (Chapter, error)
 	GetChapterDownloadContext(ctx context.Context, id int64) (GetChapterDownloadContextRow, error)
 	GetContentFilterInputs(ctx context.Context, id int64) (GetContentFilterInputsRow, error)
+	GetCustomFolderByName(ctx context.Context, name string) (Folder, error)
 	GetExtension(ctx context.Context, id int64) (Extension, error)
 	GetExtensionByPackageName(ctx context.Context, packageName string) (Extension, error)
+	GetExtensionBySourceID(ctx context.Context, sourceID int64) (Extension, error)
 	GetExtensionsByIDs(ctx context.Context, ids []int64) ([]Extension, error)
 	GetFolder(ctx context.Context, id int64) (Folder, error)
 	GetFolderBySystemKey(ctx context.Context, systemKey sql.NullString) (Folder, error)
@@ -101,6 +103,8 @@ type Querier interface {
 	ListGenresByMediaIDs(ctx context.Context, mediaIds []int64) ([]ListGenresByMediaIDsRow, error)
 	ListGenresForMedia(ctx context.Context, mediaID int64) ([]Genre, error)
 	ListInstalledExtensions(ctx context.Context) ([]Extension, error)
+	ListInstalledExtensionsWithSourceID(ctx context.Context) ([]Extension, error)
+	ListLibraryMediaForExport(ctx context.Context) ([]Medium, error)
 	ListLocalMedia(ctx context.Context) ([]Medium, error)
 	ListMangaPages(ctx context.Context, chapterID int64) ([]MangaPage, error)
 	ListMediaByIDs(ctx context.Context, ids []int64) ([]Medium, error)
@@ -161,6 +165,7 @@ type Querier interface {
 	UpdateDownloadProgress(ctx context.Context, arg UpdateDownloadProgressParams) error
 	UpdateDownloadStats(ctx context.Context, arg UpdateDownloadStatsParams) error
 	UpdateExtensionIconLocalPath(ctx context.Context, arg UpdateExtensionIconLocalPathParams) error
+	UpdateExtensionSourceID(ctx context.Context, arg UpdateExtensionSourceIDParams) (Extension, error)
 	UpdateExtensionSupportsLatest(ctx context.Context, arg UpdateExtensionSupportsLatestParams) (Extension, error)
 	UpdateFolderFlags(ctx context.Context, arg UpdateFolderFlagsParams) (Folder, error)
 	UpdateLocalMedia(ctx context.Context, arg UpdateLocalMediaParams) (Medium, error)

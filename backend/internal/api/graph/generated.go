@@ -53,6 +53,14 @@ type ComplexityRoot struct {
 		URL  func(childComplexity int) int
 	}
 
+	BackupImportResult struct {
+		CategoriesImported func(childComplexity int) int
+		MangaImported      func(childComplexity int) int
+		MangaSkipped       func(childComplexity int) int
+		TrackingImported   func(childComplexity int) int
+		Warnings           func(childComplexity int) int
+	}
+
 	Chapter struct {
 		Completed       func(childComplexity int) int
 		Download        func(childComplexity int) int
@@ -101,6 +109,7 @@ type ComplexityRoot struct {
 	DatabaseBackup struct {
 		Bytes     func(childComplexity int) int
 		CreatedAt func(childComplexity int) int
+		Kind      func(childComplexity int) int
 		Name      func(childComplexity int) int
 		Path      func(childComplexity int) int
 	}
@@ -269,6 +278,8 @@ type ComplexityRoot struct {
 		DeleteRepository          func(childComplexity int, repositoryID string) int
 		DequeueDownload           func(childComplexity int, mediaID string, chapterID string) int
 		EnqueueDownload           func(childComplexity int, mediaID string, chapterIds []string) int
+		ExportMihonBackup         func(childComplexity int) int
+		ImportMihonBackup         func(childComplexity int, name string) int
 		InstallCloudflareSolver   func(childComplexity int) int
 		InstallExtension          func(childComplexity int, packageName string) int
 		InstallExternalExtension  func(childComplexity int, url string) int
@@ -646,6 +657,8 @@ type MutationResolver interface {
 	RelocateDownloads(ctx context.Context, newPath string, migrate bool) (*model.RelocateDownloadsResult, error)
 	CreateDatabaseBackup(ctx context.Context) (*model.DatabaseBackup, error)
 	DeleteDatabaseBackup(ctx context.Context, name string) (bool, error)
+	ExportMihonBackup(ctx context.Context) (*model.DatabaseBackup, error)
+	ImportMihonBackup(ctx context.Context, name string) (*model.BackupImportResult, error)
 	StartLibraryUpdate(ctx context.Context, folderID *string) (bool, error)
 	SetMediaCover(ctx context.Context, mediaID string, url *string) (*model.Media, error)
 	RefetchMediaCover(ctx context.Context, mediaID string) (*model.Media, error)
@@ -751,6 +764,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AudioTrack.URL(childComplexity), true
+
+	case "BackupImportResult.categoriesImported":
+		if e.ComplexityRoot.BackupImportResult.CategoriesImported == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BackupImportResult.CategoriesImported(childComplexity), true
+	case "BackupImportResult.mangaImported":
+		if e.ComplexityRoot.BackupImportResult.MangaImported == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BackupImportResult.MangaImported(childComplexity), true
+	case "BackupImportResult.mangaSkipped":
+		if e.ComplexityRoot.BackupImportResult.MangaSkipped == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BackupImportResult.MangaSkipped(childComplexity), true
+	case "BackupImportResult.trackingImported":
+		if e.ComplexityRoot.BackupImportResult.TrackingImported == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BackupImportResult.TrackingImported(childComplexity), true
+	case "BackupImportResult.warnings":
+		if e.ComplexityRoot.BackupImportResult.Warnings == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BackupImportResult.Warnings(childComplexity), true
 
 	case "Chapter.completed":
 		if e.ComplexityRoot.Chapter.Completed == nil {
@@ -966,6 +1010,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DatabaseBackup.CreatedAt(childComplexity), true
+	case "DatabaseBackup.kind":
+		if e.ComplexityRoot.DatabaseBackup.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DatabaseBackup.Kind(childComplexity), true
 	case "DatabaseBackup.name":
 		if e.ComplexityRoot.DatabaseBackup.Name == nil {
 			break
@@ -1828,6 +1878,23 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.EnqueueDownload(childComplexity, args["mediaId"].(string), args["chapterIds"].([]string)), true
+	case "Mutation.exportMihonBackup":
+		if e.ComplexityRoot.Mutation.ExportMihonBackup == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Mutation.ExportMihonBackup(childComplexity), true
+	case "Mutation.importMihonBackup":
+		if e.ComplexityRoot.Mutation.ImportMihonBackup == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_importMihonBackup_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ImportMihonBackup(childComplexity, args["name"].(string)), true
 	case "Mutation.installCloudflareSolver":
 		if e.ComplexityRoot.Mutation.InstallCloudflareSolver == nil {
 			break
@@ -3568,6 +3635,22 @@ func (ec *executionContext) childFields_AudioTrack(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type AudioTrack", field.Name)
 }
 
+func (ec *executionContext) childFields_BackupImportResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "mangaImported":
+		return ec.fieldContext_BackupImportResult_mangaImported(ctx, field)
+	case "mangaSkipped":
+		return ec.fieldContext_BackupImportResult_mangaSkipped(ctx, field)
+	case "categoriesImported":
+		return ec.fieldContext_BackupImportResult_categoriesImported(ctx, field)
+	case "trackingImported":
+		return ec.fieldContext_BackupImportResult_trackingImported(ctx, field)
+	case "warnings":
+		return ec.fieldContext_BackupImportResult_warnings(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BackupImportResult", field.Name)
+}
+
 func (ec *executionContext) childFields_Chapter(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -3658,6 +3741,8 @@ func (ec *executionContext) childFields_DatabaseBackup(ctx context.Context, fiel
 		return ec.fieldContext_DatabaseBackup_bytes(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_DatabaseBackup_createdAt(ctx, field)
+	case "kind":
+		return ec.fieldContext_DatabaseBackup_kind(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DatabaseBackup", field.Name)
 }
@@ -4765,6 +4850,20 @@ func (ec *executionContext) field_Mutation_enqueueDownload_args(ctx context.Cont
 		return nil, err
 	}
 	args["chapterIds"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_importMihonBackup_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "name",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg0
 	return args, nil
 }
 
@@ -6239,6 +6338,121 @@ func (ec *executionContext) fieldContext_AudioTrack_url(_ context.Context, field
 	return graphql.NewScalarFieldContext("AudioTrack", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _BackupImportResult_mangaImported(ctx context.Context, field graphql.CollectedField, obj *model.BackupImportResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BackupImportResult_mangaImported(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MangaImported, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BackupImportResult_mangaImported(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BackupImportResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BackupImportResult_mangaSkipped(ctx context.Context, field graphql.CollectedField, obj *model.BackupImportResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BackupImportResult_mangaSkipped(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MangaSkipped, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BackupImportResult_mangaSkipped(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BackupImportResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BackupImportResult_categoriesImported(ctx context.Context, field graphql.CollectedField, obj *model.BackupImportResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BackupImportResult_categoriesImported(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CategoriesImported, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BackupImportResult_categoriesImported(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BackupImportResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BackupImportResult_trackingImported(ctx context.Context, field graphql.CollectedField, obj *model.BackupImportResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BackupImportResult_trackingImported(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrackingImported, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BackupImportResult_trackingImported(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BackupImportResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BackupImportResult_warnings(ctx context.Context, field graphql.CollectedField, obj *model.BackupImportResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BackupImportResult_warnings(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Warnings, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BackupImportResult_warnings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BackupImportResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Chapter_id(ctx context.Context, field graphql.CollectedField, obj *model.Chapter) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7114,6 +7328,29 @@ func (ec *executionContext) _DatabaseBackup_createdAt(ctx context.Context, field
 	)
 }
 func (ec *executionContext) fieldContext_DatabaseBackup_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DatabaseBackup", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DatabaseBackup_kind(ctx context.Context, field graphql.CollectedField, obj *model.DatabaseBackup) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DatabaseBackup_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DatabaseBackup_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("DatabaseBackup", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
@@ -11558,6 +11795,82 @@ func (ec *executionContext) fieldContext_Mutation_deleteDatabaseBackup(ctx conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteDatabaseBackup_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_exportMihonBackup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_exportMihonBackup(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Mutation().ExportMihonBackup(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.DatabaseBackup) graphql.Marshaler {
+			return ec.marshalNDatabaseBackup2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐDatabaseBackup(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_exportMihonBackup(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DatabaseBackup(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_importMihonBackup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_importMihonBackup(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ImportMihonBackup(ctx, fc.Args["name"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BackupImportResult) graphql.Marshaler {
+			return ec.marshalNBackupImportResult2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐBackupImportResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_importMihonBackup(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BackupImportResult(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_importMihonBackup_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -18552,6 +18865,64 @@ func (ec *executionContext) _AudioTrack(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var backupImportResultImplementors = []string{"BackupImportResult"}
+
+func (ec *executionContext) _BackupImportResult(ctx context.Context, sel ast.SelectionSet, obj *model.BackupImportResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, backupImportResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BackupImportResult")
+		case "mangaImported":
+			out.Values[i] = ec._BackupImportResult_mangaImported(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "mangaSkipped":
+			out.Values[i] = ec._BackupImportResult_mangaSkipped(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "categoriesImported":
+			out.Values[i] = ec._BackupImportResult_categoriesImported(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "trackingImported":
+			out.Values[i] = ec._BackupImportResult_trackingImported(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "warnings":
+			out.Values[i] = ec._BackupImportResult_warnings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var chapterImplementors = []string{"Chapter"}
 
 func (ec *executionContext) _Chapter(ctx context.Context, sel ast.SelectionSet, obj *model.Chapter) graphql.Marshaler {
@@ -19142,6 +19513,11 @@ func (ec *executionContext) _DatabaseBackup(ctx context.Context, sel ast.Selecti
 			}
 		case "createdAt":
 			out.Values[i] = ec._DatabaseBackup_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kind":
+			out.Values[i] = ec._DatabaseBackup_kind(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20971,6 +21347,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteDatabaseBackup":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteDatabaseBackup(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "exportMihonBackup":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_exportMihonBackup(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "importMihonBackup":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_importMihonBackup(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -23895,6 +24285,20 @@ func (ec *executionContext) marshalNAudioTrack2ᚖtsunaguᚋbackendᚋinternal�
 		return graphql.Null
 	}
 	return ec._AudioTrack(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBackupImportResult2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐBackupImportResult(ctx context.Context, sel ast.SelectionSet, v model.BackupImportResult) graphql.Marshaler {
+	return ec._BackupImportResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNBackupImportResult2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐBackupImportResult(ctx context.Context, sel ast.SelectionSet, v *model.BackupImportResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BackupImportResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {

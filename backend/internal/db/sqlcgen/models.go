@@ -78,6 +78,7 @@ type Extension struct {
 	NeedsUpdate      sql.NullBool   `json:"needs_update"`
 	IsNsfw           bool           `json:"is_nsfw"`
 	SupportsLatest   bool           `json:"supports_latest"`
+	SourceID         int64          `json:"source_id"`
 }
 
 type Folder struct {

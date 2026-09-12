@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package mihon.backup.v1;
+
+option go_package = "tsunagu/backend/internal/backup/mihonpb;mihonpb";
+
+message Backup {
+  repeated BackupManga manga = 1;
+  repeated BackupCategory categories = 2;
+  repeated BackupSource sources = 101;
+}
+
+message BackupManga {
+  int64 source = 1;
+  string url = 2;
+  string title = 3;
+  optional string artist = 4;
+  optional string author = 5;
+  optional string description = 6;
+  repeated string genre = 7;
+  int32 status = 8;
+  optional string thumbnail_url = 9;
+  int64 date_added = 13;
+  int32 viewer = 14;
+  repeated BackupChapter chapters = 16;
+  repeated int64 categories = 17;
+  repeated BackupTracking tracking = 18;
+  bool favorite = 100;
+  int32 chapter_flags = 101;
+  optional int32 viewer_flags = 103;
+  repeated BackupHistory history = 104;
+  int32 update_strategy = 105;
+  int64 last_modified_at = 106;
+  optional int64 favorite_modified_at = 107;
+  repeated string excluded_scanlators = 108;
+  int64 version = 109;
+  string notes = 110;
+  bool initialized = 111;
+}
+
+message BackupChapter {
+  string url = 1;
+  string name = 2;
+  optional string scanlator = 3;
+  bool read = 4;
+  bool bookmark = 5;
+  int64 last_page_read = 6;
+  int64 date_fetch = 7;
+  int64 date_upload = 8;
+  float chapter_number = 9;
+  int64 source_order = 10;
+  int64 last_modified_at = 11;
+  int64 version = 12;
+}
+
+message BackupCategory {
+  string name = 1;
+  int64 order = 2;
+  int64 id = 3;
+  int64 flags = 100;
+}
+
+message BackupTracking {
+  int32 sync_id = 1;
+  int64 library_id = 2;
+  int32 media_id_int = 3;
+  string tracking_url = 4;
+  string title = 5;
+  float last_chapter_read = 6;
+  int32 total_chapters = 7;
+  float score = 8;
+  int32 status = 9;
+  int64 started_reading_date = 10;
+  int64 finished_reading_date = 11;
+  bool private = 12;
+  int64 media_id = 100;
+}
+
+message BackupHistory {
+  string url = 1;
+  int64 last_read = 2;
+  int64 read_duration = 3;
+}
+
+message BackupSource {
+  string name = 1;
+  int64 source_id = 2;
+}

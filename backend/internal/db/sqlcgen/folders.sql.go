@@ -63,6 +63,27 @@ func (q *Queries) DeleteFolder(ctx context.Context, id int64) error {
 	return err
 }
 
+const getCustomFolderByName = `-- name: GetCustomFolderByName :one
+SELECT id, name, kind, system_key, parent_folder_id, sort_order, created_at, include_in_update, include_in_download FROM folders WHERE name = ? AND kind = 'custom' LIMIT 1
+`
+
+func (q *Queries) GetCustomFolderByName(ctx context.Context, name string) (Folder, error) {
+	row := q.db.QueryRowContext(ctx, getCustomFolderByName, name)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Kind,
+		&i.SystemKey,
+		&i.ParentFolderID,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.IncludeInUpdate,
+		&i.IncludeInDownload,
+	)
+	return i, err
+}
+
 const getFolder = `-- name: GetFolder :one
 SELECT id, name, kind, system_key, parent_folder_id, sort_order, created_at, include_in_update, include_in_download FROM folders WHERE id = ?
 `

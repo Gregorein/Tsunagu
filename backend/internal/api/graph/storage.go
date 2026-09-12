@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"tsunagu/backend/internal/api/graph/model"
+	"tsunagu/backend/internal/backup"
 	"tsunagu/backend/internal/image"
 )
 
@@ -51,12 +51,13 @@ func (r *Resolver) storageInfoModel() (*model.StorageInfo, error) {
 	}, nil
 }
 
-func toDatabaseBackup(b dbBackup) *model.DatabaseBackup {
+func toDatabaseBackup(b backup.Info) *model.DatabaseBackup {
 	return &model.DatabaseBackup{
-		Name:      b.name,
-		Path:      b.path,
-		Bytes:     float64(b.bytes),
-		CreatedAt: b.createdAt.UTC().Format(time.RFC3339),
+		Name:      b.Name,
+		Path:      b.Path,
+		Bytes:     float64(b.Bytes),
+		CreatedAt: b.CreatedAt.UTC().Format(time.RFC3339),
+		Kind:      b.Kind,
 	}
 }
 
@@ -156,57 +157,12 @@ func (r *Resolver) backupDir() string {
 	return filepath.Join(r.Cfg.Config().DataDir, "backups")
 }
 
-type dbBackup struct {
-	name      string
-	path      string
-	bytes     int64
-	createdAt time.Time
+func (r *Resolver) listBackups() ([]backup.Info, error) {
+	return backup.List(r.backupDir())
 }
 
-func (r *Resolver) listBackups() ([]dbBackup, error) {
-	dir := r.backupDir()
-	ents, err := os.ReadDir(dir)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var out []dbBackup
-	for _, e := range ents {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".db") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		out = append(out, dbBackup{
-			name:      e.Name(),
-			path:      filepath.Join(dir, e.Name()),
-			bytes:     info.Size(),
-			createdAt: info.ModTime(),
-		})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].createdAt.After(out[j].createdAt) })
-	return out, nil
-}
-
-func (r *Resolver) createBackup(ctx context.Context) (dbBackup, error) {
-	dir := r.backupDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return dbBackup{}, err
-	}
-	name := "tsunagu-" + time.Now().Format("20060102-150405") + ".db"
-	dest := filepath.Join(dir, name)
-	if _, err := r.DB.ExecContext(ctx, "VACUUM INTO ?", dest); err != nil {
-		return dbBackup{}, fmt.Errorf("vacuum into %s: %w", dest, err)
-	}
-	info, err := os.Stat(dest)
-	if err != nil {
-		return dbBackup{}, err
-	}
-	return dbBackup{name: name, path: dest, bytes: info.Size(), createdAt: info.ModTime()}, nil
+func (r *Resolver) createBackup(ctx context.Context) (backup.Info, error) {
+	return backup.CreateSnapshot(ctx, r.DB, r.backupDir())
 }
 
 func (r *Resolver) clearCategory(ctx context.Context, key string) error {
@@ -257,8 +213,8 @@ func (r *Resolver) clearCategory(ctx context.Context, key string) error {
 }
 
 func (r *Resolver) deleteBackup(name string) error {
-	if name == "" || strings.ContainsAny(name, "/\\") || !strings.HasSuffix(name, ".db") {
+	if name == "" || strings.ContainsAny(name, "/\\") || (!strings.HasSuffix(name, ".db") && !strings.HasSuffix(name, ".tachibk")) {
 		return fmt.Errorf("invalid backup name")
 	}
-	return os.Remove(filepath.Join(r.backupDir(), name))
+	return backup.Delete(r.backupDir(), name)
 }

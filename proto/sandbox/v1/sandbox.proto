@@ -55,6 +55,7 @@ message Extension {
   ContentType content_type = 4;
   string lang = 5;
   bool supports_latest = 6;
+  int64 source_id = 7;
 }
 
 message ExtensionList {

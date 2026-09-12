@@ -273,6 +273,7 @@ type Extension struct {
 	ContentType    ContentType            `protobuf:"varint,4,opt,name=content_type,json=contentType,proto3,enum=sandbox.v1.ContentType" json:"content_type,omitempty"`
 	Lang           string                 `protobuf:"bytes,5,opt,name=lang,proto3" json:"lang,omitempty"`
 	SupportsLatest bool                   `protobuf:"varint,6,opt,name=supports_latest,json=supportsLatest,proto3" json:"supports_latest,omitempty"`
+	SourceId       int64                  `protobuf:"varint,7,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -347,6 +348,13 @@ func (x *Extension) GetSupportsLatest() bool {
 		return x.SupportsLatest
 	}
 	return false
+}
+
+func (x *Extension) GetSourceId() int64 {
+	if x != nil {
+		return x.SourceId
+	}
+	return 0
 }
 
 type ExtensionList struct {
@@ -2696,14 +2704,15 @@ const file_sandbox_v1_sandbox_proto_rawDesc = "" +
 	"\fcontent_type\x18\x03 \x01(\x0e2\x17.sandbox.v1.ContentTypeR\vcontentType\x12\x12\n" +
 	"\x04lang\x18\x04 \x01(\tR\x04lang\"5\n" +
 	"\x10ExtensionRequest\x12!\n" +
-	"\fextension_id\x18\x01 \x01(\tR\vextensionId\"\xc2\x01\n" +
+	"\fextension_id\x18\x01 \x01(\tR\vextensionId\"\xdf\x01\n" +
 	"\tExtension\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12:\n" +
 	"\fcontent_type\x18\x04 \x01(\x0e2\x17.sandbox.v1.ContentTypeR\vcontentType\x12\x12\n" +
 	"\x04lang\x18\x05 \x01(\tR\x04lang\x12'\n" +
-	"\x0fsupports_latest\x18\x06 \x01(\bR\x0esupportsLatest\"F\n" +
+	"\x0fsupports_latest\x18\x06 \x01(\bR\x0esupportsLatest\x12\x1b\n" +
+	"\tsource_id\x18\a \x01(\x03R\bsourceId\"F\n" +
 	"\rExtensionList\x125\n" +
 	"\n" +
 	"extensions\x18\x01 \x03(\v2\x15.sandbox.v1.ExtensionR\n" +

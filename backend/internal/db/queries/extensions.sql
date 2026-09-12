@@ -90,6 +90,16 @@ UPDATE extensions SET icon_local_path = NULL;
 UPDATE extensions SET supports_latest = ? WHERE id = ?
 RETURNING *;
 
+-- name: UpdateExtensionSourceID :one
+UPDATE extensions SET source_id = ? WHERE id = ?
+RETURNING *;
+
+-- name: GetExtensionBySourceID :one
+SELECT * FROM extensions WHERE source_id = ? AND source_id != 0 LIMIT 1;
+
+-- name: ListInstalledExtensionsWithSourceID :many
+SELECT * FROM extensions WHERE installed = TRUE AND source_id != 0 ORDER BY name;
+
 -- name: GetExtensionsByIDs :many
 
 SELECT * FROM extensions WHERE id IN (sqlc.slice('ids'));

@@ -568,6 +568,35 @@ func (s *Syncer) ListInstalledExtensions(ctx context.Context) ([]sqlcgen.Extensi
 	return s.q.ListInstalledExtensions(ctx)
 }
 
+func (s *Syncer) PersistExtensionMeta(ctx context.Context, ext sqlcgen.Extension, loaded *sandboxv1.Extension) sqlcgen.Extension {
+	if loaded == nil {
+		return ext
+	}
+	if supportsLatest := loaded.GetSupportsLatest(); supportsLatest != ext.SupportsLatest {
+		updated, err := s.q.UpdateExtensionSupportsLatest(ctx, sqlcgen.UpdateExtensionSupportsLatestParams{
+			SupportsLatest: supportsLatest,
+			ID:             ext.ID,
+		})
+		if err != nil {
+			log.Printf("sync: persisting supportsLatest for %s failed: %v", ext.PackageName, err)
+		} else {
+			ext = updated
+		}
+	}
+	if sourceID := loaded.GetSourceId(); sourceID != 0 && sourceID != ext.SourceID {
+		updated, err := s.q.UpdateExtensionSourceID(ctx, sqlcgen.UpdateExtensionSourceIDParams{
+			SourceID: sourceID,
+			ID:       ext.ID,
+		})
+		if err != nil {
+			log.Printf("sync: persisting sourceId for %s failed: %v", ext.PackageName, err)
+		} else {
+			ext = updated
+		}
+	}
+	return ext
+}
+
 func (s *Syncer) UpdateExtension(ctx context.Context, packageName string) (sqlcgen.Extension, error) {
 	if !repository.IsValidPackageName(packageName) {
 		return sqlcgen.Extension{}, fmt.Errorf("invalid package name: %q", packageName)

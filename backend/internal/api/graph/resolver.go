@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 
 	"tsunagu/backend/internal/config"
 	"tsunagu/backend/internal/contentfilter"
@@ -54,19 +53,7 @@ func (r *Resolver) persistSupportsLatest(ctx context.Context, ext sqlcgen.Extens
 	if len(loaded.GetExtensions()) == 0 {
 		return ext
 	}
-	supportsLatest := loaded.GetExtensions()[0].GetSupportsLatest()
-	if supportsLatest == ext.SupportsLatest {
-		return ext
-	}
-	updated, err := r.Q.UpdateExtensionSupportsLatest(ctx, sqlcgen.UpdateExtensionSupportsLatestParams{
-		SupportsLatest: supportsLatest,
-		ID:             ext.ID,
-	})
-	if err != nil {
-		log.Printf("resolver: persisting supportsLatest for %s failed: %v", ext.PackageName, err)
-		return ext
-	}
-	return updated
+	return r.Sy.PersistExtensionMeta(ctx, ext, loaded.GetExtensions()[0])
 }
 
 func (r *mutationResolver) refreshMediaFull(ctx context.Context, c *sandbox.Client, id int64, syncChapters bool) (sqlcgen.Medium, error) {

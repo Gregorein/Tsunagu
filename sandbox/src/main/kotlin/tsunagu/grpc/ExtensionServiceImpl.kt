@@ -604,6 +604,13 @@ class ExtensionServiceImpl(
             else -> false
         }
 
+    private fun extensionSourceId(source: Any): Long =
+        when (source) {
+            is eu.kanade.tachiyomi.source.Source -> source.id
+            is eu.kanade.tachiyomi.animesource.AnimeSource -> source.id
+            else -> 0L
+        }
+
     private fun toExtensionProto(ext: LoadedExtension): Sandbox.Extension =
         Sandbox.Extension.newBuilder()
             .setId(ext.packageName)
@@ -611,6 +618,7 @@ class ExtensionServiceImpl(
             .setContentType(toContentTypeProto(ext.contentType))
             .setLang(extensionLang(ext.source))
             .setSupportsLatest(extensionSupportsLatest(ext.source))
+            .setSourceId(extensionSourceId(ext.source))
             .build()
 
     private fun splitGenres(genre: String?): List<String> =

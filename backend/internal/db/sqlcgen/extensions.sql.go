@@ -53,7 +53,7 @@ func (q *Queries) CountExtensions(ctx context.Context, arg CountExtensionsParams
 }
 
 const getExtension = `-- name: GetExtension :one
-SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest FROM extensions WHERE id = ?
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE id = ?
 `
 
 func (q *Queries) GetExtension(ctx context.Context, id int64) (Extension, error) {
@@ -80,12 +80,13 @@ func (q *Queries) GetExtension(ctx context.Context, id int64) (Extension, error)
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
 
 const getExtensionByPackageName = `-- name: GetExtensionByPackageName :one
-SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest FROM extensions WHERE package_name = ?
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE package_name = ?
 `
 
 func (q *Queries) GetExtensionByPackageName(ctx context.Context, packageName string) (Extension, error) {
@@ -112,13 +113,47 @@ func (q *Queries) GetExtensionByPackageName(ctx context.Context, packageName str
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
+	)
+	return i, err
+}
+
+const getExtensionBySourceID = `-- name: GetExtensionBySourceID :one
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE source_id = ? AND source_id != 0 LIMIT 1
+`
+
+func (q *Queries) GetExtensionBySourceID(ctx context.Context, sourceID int64) (Extension, error) {
+	row := q.db.QueryRowContext(ctx, getExtensionBySourceID, sourceID)
+	var i Extension
+	err := row.Scan(
+		&i.ID,
+		&i.RepositoryID,
+		&i.PackageName,
+		&i.Name,
+		&i.Version,
+		&i.ContentType,
+		&i.Lang,
+		&i.IconUrl,
+		&i.IconLocalPath,
+		&i.ApkUrl,
+		&i.JarUrl,
+		&i.JarPath,
+		&i.Installed,
+		&i.Enabled,
+		&i.DiscoveredAt,
+		&i.InstalledAt,
+		&i.InstalledVersion,
+		&i.NeedsUpdate,
+		&i.IsNsfw,
+		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
 
 const getExtensionsByIDs = `-- name: GetExtensionsByIDs :many
 
-SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest FROM extensions WHERE id IN (/*SLICE:ids*/?)
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE id IN (/*SLICE:ids*/?)
 `
 
 func (q *Queries) GetExtensionsByIDs(ctx context.Context, ids []int64) ([]Extension, error) {
@@ -161,6 +196,7 @@ func (q *Queries) GetExtensionsByIDs(ctx context.Context, ids []int64) ([]Extens
 			&i.NeedsUpdate,
 			&i.IsNsfw,
 			&i.SupportsLatest,
+			&i.SourceID,
 		); err != nil {
 			return nil, err
 		}
@@ -222,7 +258,7 @@ func (q *Queries) ListExtensionLanguages(ctx context.Context, arg ListExtensionL
 }
 
 const listExtensionsByRepository = `-- name: ListExtensionsByRepository :many
-SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest FROM extensions WHERE repository_id = ? ORDER BY name
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE repository_id = ? ORDER BY name
 `
 
 func (q *Queries) ListExtensionsByRepository(ctx context.Context, repositoryID int64) ([]Extension, error) {
@@ -255,6 +291,7 @@ func (q *Queries) ListExtensionsByRepository(ctx context.Context, repositoryID i
 			&i.NeedsUpdate,
 			&i.IsNsfw,
 			&i.SupportsLatest,
+			&i.SourceID,
 		); err != nil {
 			return nil, err
 		}
@@ -270,7 +307,7 @@ func (q *Queries) ListExtensionsByRepository(ctx context.Context, repositoryID i
 }
 
 const listInstalledExtensions = `-- name: ListInstalledExtensions :many
-SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest FROM extensions WHERE installed = TRUE AND enabled = TRUE ORDER BY name
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE installed = TRUE AND enabled = TRUE ORDER BY name
 `
 
 func (q *Queries) ListInstalledExtensions(ctx context.Context) ([]Extension, error) {
@@ -303,6 +340,56 @@ func (q *Queries) ListInstalledExtensions(ctx context.Context) ([]Extension, err
 			&i.NeedsUpdate,
 			&i.IsNsfw,
 			&i.SupportsLatest,
+			&i.SourceID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInstalledExtensionsWithSourceID = `-- name: ListInstalledExtensionsWithSourceID :many
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions WHERE installed = TRUE AND source_id != 0 ORDER BY name
+`
+
+func (q *Queries) ListInstalledExtensionsWithSourceID(ctx context.Context) ([]Extension, error) {
+	rows, err := q.db.QueryContext(ctx, listInstalledExtensionsWithSourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Extension{}
+	for rows.Next() {
+		var i Extension
+		if err := rows.Scan(
+			&i.ID,
+			&i.RepositoryID,
+			&i.PackageName,
+			&i.Name,
+			&i.Version,
+			&i.ContentType,
+			&i.Lang,
+			&i.IconUrl,
+			&i.IconLocalPath,
+			&i.ApkUrl,
+			&i.JarUrl,
+			&i.JarPath,
+			&i.Installed,
+			&i.Enabled,
+			&i.DiscoveredAt,
+			&i.InstalledAt,
+			&i.InstalledVersion,
+			&i.NeedsUpdate,
+			&i.IsNsfw,
+			&i.SupportsLatest,
+			&i.SourceID,
 		); err != nil {
 			return nil, err
 		}
@@ -321,7 +408,7 @@ const markExtensionInstalled = `-- name: MarkExtensionInstalled :one
 UPDATE extensions
 SET installed = TRUE, jar_path = ?, installed_version = version, installed_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
 `
 
 type MarkExtensionInstalledParams struct {
@@ -353,6 +440,7 @@ func (q *Queries) MarkExtensionInstalled(ctx context.Context, arg MarkExtensionI
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
@@ -361,7 +449,7 @@ const markExtensionUninstalled = `-- name: MarkExtensionUninstalled :one
 UPDATE extensions
 SET installed = FALSE, jar_path = NULL, installed_version = NULL, installed_at = NULL
 WHERE id = ?
-RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
 `
 
 func (q *Queries) MarkExtensionUninstalled(ctx context.Context, id int64) (Extension, error) {
@@ -388,6 +476,7 @@ func (q *Queries) MarkExtensionUninstalled(ctx context.Context, id int64) (Exten
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
@@ -396,7 +485,7 @@ const markExtensionUpdated = `-- name: MarkExtensionUpdated :one
 UPDATE extensions
 SET jar_path = ?, installed_version = version, installed_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
 `
 
 type MarkExtensionUpdatedParams struct {
@@ -428,12 +517,13 @@ func (q *Queries) MarkExtensionUpdated(ctx context.Context, arg MarkExtensionUpd
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
 
 const queryExtensions = `-- name: QueryExtensions :many
-SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest FROM extensions
+SELECT id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id FROM extensions
 WHERE (CAST(?1 AS INTEGER) IS NULL OR repository_id = ?1)
   AND (CAST(?2 AS TEXT) IS NULL OR content_type = ?2)
   AND (CAST(?3 AS TEXT) IS NULL OR lang = ?3)
@@ -493,6 +583,7 @@ func (q *Queries) QueryExtensions(ctx context.Context, arg QueryExtensionsParams
 			&i.NeedsUpdate,
 			&i.IsNsfw,
 			&i.SupportsLatest,
+			&i.SourceID,
 		); err != nil {
 			return nil, err
 		}
@@ -509,7 +600,7 @@ func (q *Queries) QueryExtensions(ctx context.Context, arg QueryExtensionsParams
 
 const setExtensionEnabled = `-- name: SetExtensionEnabled :one
 UPDATE extensions SET enabled = ? WHERE id = ?
-RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
 `
 
 type SetExtensionEnabledParams struct {
@@ -541,6 +632,7 @@ func (q *Queries) SetExtensionEnabled(ctx context.Context, arg SetExtensionEnabl
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
@@ -559,9 +651,48 @@ func (q *Queries) UpdateExtensionIconLocalPath(ctx context.Context, arg UpdateEx
 	return err
 }
 
+const updateExtensionSourceID = `-- name: UpdateExtensionSourceID :one
+UPDATE extensions SET source_id = ? WHERE id = ?
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
+`
+
+type UpdateExtensionSourceIDParams struct {
+	SourceID int64 `json:"source_id"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) UpdateExtensionSourceID(ctx context.Context, arg UpdateExtensionSourceIDParams) (Extension, error) {
+	row := q.db.QueryRowContext(ctx, updateExtensionSourceID, arg.SourceID, arg.ID)
+	var i Extension
+	err := row.Scan(
+		&i.ID,
+		&i.RepositoryID,
+		&i.PackageName,
+		&i.Name,
+		&i.Version,
+		&i.ContentType,
+		&i.Lang,
+		&i.IconUrl,
+		&i.IconLocalPath,
+		&i.ApkUrl,
+		&i.JarUrl,
+		&i.JarPath,
+		&i.Installed,
+		&i.Enabled,
+		&i.DiscoveredAt,
+		&i.InstalledAt,
+		&i.InstalledVersion,
+		&i.NeedsUpdate,
+		&i.IsNsfw,
+		&i.SupportsLatest,
+		&i.SourceID,
+	)
+	return i, err
+}
+
 const updateExtensionSupportsLatest = `-- name: UpdateExtensionSupportsLatest :one
 UPDATE extensions SET supports_latest = ? WHERE id = ?
-RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
 `
 
 type UpdateExtensionSupportsLatestParams struct {
@@ -593,6 +724,7 @@ func (q *Queries) UpdateExtensionSupportsLatest(ctx context.Context, arg UpdateE
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }
@@ -611,7 +743,7 @@ ON CONFLICT(package_name) DO UPDATE SET
     apk_url = excluded.apk_url,
     jar_url = excluded.jar_url,
     is_nsfw = excluded.is_nsfw
-RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest
+RETURNING id, repository_id, package_name, name, version, content_type, lang, icon_url, icon_local_path, apk_url, jar_url, jar_path, installed, enabled, discovered_at, installed_at, installed_version, needs_update, is_nsfw, supports_latest, source_id
 `
 
 type UpsertExtensionParams struct {
@@ -662,6 +794,7 @@ func (q *Queries) UpsertExtension(ctx context.Context, arg UpsertExtensionParams
 		&i.NeedsUpdate,
 		&i.IsNsfw,
 		&i.SupportsLatest,
+		&i.SourceID,
 	)
 	return i, err
 }

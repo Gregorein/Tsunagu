@@ -93,6 +93,9 @@ ORDER BY m.title;
 -- name: GetLocalMediaByExternalID :one
 SELECT * FROM media WHERE extension_id IS NULL AND external_id = ?;
 
+-- name: ListLibraryMediaForExport :many
+SELECT * FROM media WHERE added_at IS NOT NULL AND content_type != 'anime' ORDER BY id;
+
 -- name: ListLocalMedia :many
 SELECT * FROM media WHERE extension_id IS NULL AND extension_name = 'Local' ORDER BY title;
 

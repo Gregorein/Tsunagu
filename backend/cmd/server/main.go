@@ -29,6 +29,7 @@ import (
 
 	"tsunagu/backend/internal/api/graph"
 	"tsunagu/backend/internal/api/rest"
+	"tsunagu/backend/internal/backup"
 	"tsunagu/backend/internal/config"
 	"tsunagu/backend/internal/contentfilter"
 	"tsunagu/backend/internal/db"
@@ -246,6 +247,23 @@ func main() {
 		}()
 	}
 
+	if h := cfg.BackupIntervalHours; h > 0 {
+		backupDir := filepath.Join(cfg.DataDir, "backups")
+		go func() {
+			t := time.NewTicker(time.Duration(h) * time.Hour)
+			defer t.Stop()
+			for range t.C {
+				if _, err := backup.CreateSnapshot(context.Background(), globalDB, backupDir); err != nil {
+					log.Printf("scheduled backup: %v", err)
+					continue
+				}
+				if err := backup.PruneSnapshots(backupDir, cfg.BackupRetentionCount); err != nil {
+					log.Printf("scheduled backup: prune: %v", err)
+				}
+			}
+		}()
+	}
+
 	globalMediaDir = absMediaDir
 
 	mux := http.NewServeMux()
@@ -343,8 +361,20 @@ func reloadInstalledExtensions(ctx context.Context, sy *sync.Syncer, sc *sandbox
 	if err != nil {
 		return err
 	}
-	_, err = c.LoadExtensions(ctx, toLoad)
-	return err
+	resp, err := c.LoadExtensions(ctx, toLoad)
+	if err != nil {
+		return err
+	}
+	byPackage := make(map[string]sqlcgen.Extension, len(installed))
+	for _, ext := range installed {
+		byPackage[ext.PackageName] = ext
+	}
+	for _, loaded := range resp.GetExtensions() {
+		if ext, ok := byPackage[loaded.GetId()]; ok {
+			sy.PersistExtensionMeta(ctx, ext, loaded)
+		}
+	}
+	return nil
 }
 
 type statusRecorder struct {

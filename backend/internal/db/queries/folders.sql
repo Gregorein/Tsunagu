@@ -8,6 +8,9 @@ SELECT * FROM folders WHERE id = ?;
 -- name: GetFolderBySystemKey :one
 SELECT * FROM folders WHERE system_key = ?;
 
+-- name: GetCustomFolderByName :one
+SELECT * FROM folders WHERE name = ? AND kind = 'custom' LIMIT 1;
+
 -- name: ListFolders :many
 SELECT * FROM folders ORDER BY kind, sort_order, name;
 

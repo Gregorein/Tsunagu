@@ -16,6 +16,7 @@ import (
 	"time"
 	"tsunagu/backend/internal/aniskip"
 	"tsunagu/backend/internal/api/graph/model"
+	"tsunagu/backend/internal/backup"
 	"tsunagu/backend/internal/db/sqlcgen"
 	"tsunagu/backend/internal/image"
 	"tsunagu/backend/internal/metadata"
@@ -1042,6 +1043,48 @@ func (r *mutationResolver) DeleteDatabaseBackup(ctx context.Context, name string
 		return false, err
 	}
 	return true, nil
+}
+
+func (r *mutationResolver) ExportMihonBackup(ctx context.Context) (*model.DatabaseBackup, error) {
+	b, err := backup.Export(ctx, r.Q)
+	if err != nil {
+		return nil, err
+	}
+	dir := r.backupDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	name := "tsunagu-" + time.Now().Format("20060102-150405") + ".tachibk"
+	dest := filepath.Join(dir, name)
+	if err := backup.WriteMihonFile(dest, b); err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(dest)
+	if err != nil {
+		return nil, err
+	}
+	return toDatabaseBackup(backup.Info{Name: name, Path: dest, Bytes: info.Size(), CreatedAt: info.ModTime(), Kind: "mihon"}), nil
+}
+
+func (r *mutationResolver) ImportMihonBackup(ctx context.Context, name string) (*model.BackupImportResult, error) {
+	if name == "" || strings.ContainsAny(name, "/\\") {
+		return nil, fmt.Errorf("invalid backup name")
+	}
+	b, err := backup.ReadMihonFile(filepath.Join(r.backupDir(), name))
+	if err != nil {
+		return nil, err
+	}
+	res, err := backup.Import(ctx, r.Q, b)
+	if err != nil {
+		return nil, err
+	}
+	return &model.BackupImportResult{
+		MangaImported:      int32(res.MangaImported),
+		MangaSkipped:       int32(res.MangaSkipped),
+		CategoriesImported: int32(res.CategoriesImported),
+		TrackingImported:   int32(res.TrackingImported),
+		Warnings:           res.Warnings,
+	}, nil
 }
 
 func (r *mutationResolver) StartLibraryUpdate(ctx context.Context, folderID *string) (bool, error) {

@@ -375,6 +375,15 @@ type DatabaseBackup {
   path: String!
   bytes: Float!
   createdAt: String!
+  kind: String!
+}
+
+type BackupImportResult {
+  mangaImported: Int!
+  mangaSkipped: Int!
+  categoriesImported: Int!
+  trackingImported: Int!
+  warnings: [String!]!
 }
 
 type AboutServer {
@@ -540,6 +549,9 @@ type Mutation {
   relocateDownloads(newPath: String!, migrate: Boolean!): RelocateDownloadsResult!
   createDatabaseBackup: DatabaseBackup!
   deleteDatabaseBackup(name: String!): Boolean!
+
+  exportMihonBackup: DatabaseBackup!
+  importMihonBackup(name: String!): BackupImportResult!
 
   startLibraryUpdate(folderId: ID): Boolean!
 

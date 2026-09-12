@@ -25,6 +25,14 @@ type AudioTrack struct {
 	URL  string `json:"url"`
 }
 
+type BackupImportResult struct {
+	MangaImported      int32    `json:"mangaImported"`
+	MangaSkipped       int32    `json:"mangaSkipped"`
+	CategoriesImported int32    `json:"categoriesImported"`
+	TrackingImported   int32    `json:"trackingImported"`
+	Warnings           []string `json:"warnings"`
+}
+
 type Chapter struct {
 	ID              string           `json:"id"`
 	MediaID         string           `json:"mediaId"`
@@ -81,6 +89,7 @@ type DatabaseBackup struct {
 	Path      string  `json:"path"`
 	Bytes     float64 `json:"bytes"`
 	CreatedAt string  `json:"createdAt"`
+	Kind      string  `json:"kind"`
 }
 
 type Download struct {

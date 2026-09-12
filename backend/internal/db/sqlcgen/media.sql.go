@@ -258,6 +258,54 @@ func (q *Queries) GetMediaByExtensionAndExternalID(ctx context.Context, arg GetM
 	return i, err
 }
 
+const listLibraryMediaForExport = `-- name: ListLibraryMediaForExport :many
+SELECT id, extension_id, extension_name, external_id, content_type, title, cover_path, cover_local_path, description, status, author, artist, extension_removed_at, added_at, last_viewed_at, details_fetched_at, updated_at, chapters_synced_at, cover_override, content_block_rank FROM media WHERE added_at IS NOT NULL AND content_type != 'anime' ORDER BY id
+`
+
+func (q *Queries) ListLibraryMediaForExport(ctx context.Context) ([]Medium, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryMediaForExport)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Medium{}
+	for rows.Next() {
+		var i Medium
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExtensionID,
+			&i.ExtensionName,
+			&i.ExternalID,
+			&i.ContentType,
+			&i.Title,
+			&i.CoverPath,
+			&i.CoverLocalPath,
+			&i.Description,
+			&i.Status,
+			&i.Author,
+			&i.Artist,
+			&i.ExtensionRemovedAt,
+			&i.AddedAt,
+			&i.LastViewedAt,
+			&i.DetailsFetchedAt,
+			&i.UpdatedAt,
+			&i.ChaptersSyncedAt,
+			&i.CoverOverride,
+			&i.ContentBlockRank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLocalMedia = `-- name: ListLocalMedia :many
 SELECT id, extension_id, extension_name, external_id, content_type, title, cover_path, cover_local_path, description, status, author, artist, extension_removed_at, added_at, last_viewed_at, details_fetched_at, updated_at, chapters_synced_at, cover_override, content_block_rank FROM media WHERE extension_id IS NULL AND extension_name = 'Local' ORDER BY title
 `
