@@ -899,6 +899,10 @@
    "module": "sha256-k7YMdaNcZiFHPDJLIYc2q3PnhGbjdR9ZGWav3ZWCibA=",
    "pom": "sha256-2ru/8VNoPIadPvsR6j4mCkQrLVQ8tVDDz0kRIXO/sMw="
   },
+  "org/json#json/20240303": {
+   "jar": "sha256-PPbNaJLjLitMHDng9S9SSKL1s3ZG/fu3mma0a2GEFO0=",
+   "pom": "sha256-mUuvXYm/TKpc6WjkxOqxNcj5eD7PTSt7Dp0cik3fHk8="
+  },
   "org/jsoup#jsoup/1.17.2": {
    "jar": "sha256-9gszs46desk+qqaKbHD3BruZA2SUsuKt0r/uEdCaxvU=",
    "pom": "sha256-ejSdIXeQw3ML4wjO0eqe4yxOdPcgWOg8K2DloolU3Q0="
