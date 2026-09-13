@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"tsunagu/backend/internal/auth"
 	"tsunagu/backend/internal/config"
 	"tsunagu/backend/internal/contentfilter"
 	"tsunagu/backend/internal/db/sqlcgen"
@@ -32,6 +33,7 @@ type Resolver struct {
 	Fs        *flaresolverr.Manager
 	Cfg       *config.Store
 	Cf        *contentfilter.Manager
+	Am        *auth.Manager
 	MediaDir  string
 	Name      string
 	Version   string

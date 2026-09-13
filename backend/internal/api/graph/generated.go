@@ -53,6 +53,10 @@ type ComplexityRoot struct {
 		URL  func(childComplexity int) int
 	}
 
+	AuthStatus struct {
+		PasswordSet func(childComplexity int) int
+	}
+
 	BackupImportResult struct {
 		CategoriesImported func(childComplexity int) int
 		MangaImported      func(childComplexity int) int
@@ -277,6 +281,7 @@ type ComplexityRoot struct {
 		DeleteFolder              func(childComplexity int, folderID string) int
 		DeleteRepository          func(childComplexity int, repositoryID string) int
 		DequeueDownload           func(childComplexity int, mediaID string, chapterID string) int
+		DisableServerAuth         func(childComplexity int) int
 		EnqueueDownload           func(childComplexity int, mediaID string, chapterIds []string) int
 		ExportMihonBackup         func(childComplexity int) int
 		ImportMihonBackup         func(childComplexity int, name string) int
@@ -305,6 +310,7 @@ type ComplexityRoot struct {
 		RetryDownload             func(childComplexity int, mediaID string, chapterID string) int
 		SetInLibrary              func(childComplexity int, mediaID string, inLibrary bool) int
 		SetMediaCover             func(childComplexity int, mediaID string, url *string) int
+		SetPassword               func(childComplexity int, newPassword string) int
 		SetSourcePreference       func(childComplexity int, extensionID string, key string, value string) int
 		StartDownloader           func(childComplexity int) int
 		StartLibraryUpdate        func(childComplexity int, folderID *string) int
@@ -327,6 +333,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		About               func(childComplexity int) int
+		AuthStatus          func(childComplexity int) int
 		AvailableExtensions func(childComplexity int, repositoryID string) int
 		Chapter             func(childComplexity int, id string) int
 		ChapterUpdates      func(childComplexity int, since *time.Time, limit *int32) int
@@ -659,6 +666,8 @@ type MutationResolver interface {
 	DeleteDatabaseBackup(ctx context.Context, name string) (bool, error)
 	ExportMihonBackup(ctx context.Context) (*model.DatabaseBackup, error)
 	ImportMihonBackup(ctx context.Context, name string) (*model.BackupImportResult, error)
+	SetPassword(ctx context.Context, newPassword string) (bool, error)
+	DisableServerAuth(ctx context.Context) (bool, error)
 	StartLibraryUpdate(ctx context.Context, folderID *string) (bool, error)
 	SetMediaCover(ctx context.Context, mediaID string, url *string) (*model.Media, error)
 	RefetchMediaCover(ctx context.Context, mediaID string) (*model.Media, error)
@@ -685,6 +694,7 @@ type QueryResolver interface {
 	InstalledExtensions(ctx context.Context) ([]*model.Extension, error)
 	CloudflareSolver(ctx context.Context) (*model.CloudflareSolver, error)
 	ServerSettings(ctx context.Context) ([]*model.ServerSetting, error)
+	AuthStatus(ctx context.Context) (*model.AuthStatus, error)
 	ContentFilterRules(ctx context.Context) ([]*model.ContentFilterRule, error)
 	LibraryTags(ctx context.Context, minCount *int32) ([]*model.TagFacet, error)
 	LibraryGenres(ctx context.Context, minCount *int32) ([]*model.TagFacet, error)
@@ -764,6 +774,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AudioTrack.URL(childComplexity), true
+
+	case "AuthStatus.passwordSet":
+		if e.ComplexityRoot.AuthStatus.PasswordSet == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuthStatus.PasswordSet(childComplexity), true
 
 	case "BackupImportResult.categoriesImported":
 		if e.ComplexityRoot.BackupImportResult.CategoriesImported == nil {
@@ -1867,6 +1884,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DequeueDownload(childComplexity, args["mediaId"].(string), args["chapterId"].(string)), true
+	case "Mutation.disableServerAuth":
+		if e.ComplexityRoot.Mutation.DisableServerAuth == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Mutation.DisableServerAuth(childComplexity), true
 	case "Mutation.enqueueDownload":
 		if e.ComplexityRoot.Mutation.EnqueueDownload == nil {
 			break
@@ -2150,6 +2173,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.SetMediaCover(childComplexity, args["mediaId"].(string), args["url"].(*string)), true
+	case "Mutation.setPassword":
+		if e.ComplexityRoot.Mutation.SetPassword == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setPassword_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetPassword(childComplexity, args["newPassword"].(string)), true
 	case "Mutation.setSourcePreference":
 		if e.ComplexityRoot.Mutation.SetSourcePreference == nil {
 			break
@@ -2335,6 +2369,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.About(childComplexity), true
+	case "Query.authStatus":
+		if e.ComplexityRoot.Query.AuthStatus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.AuthStatus(childComplexity), true
 	case "Query.availableExtensions":
 		if e.ComplexityRoot.Query.AvailableExtensions == nil {
 			break
@@ -3633,6 +3673,14 @@ func (ec *executionContext) childFields_AudioTrack(ctx context.Context, field gr
 		return ec.fieldContext_AudioTrack_url(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type AudioTrack", field.Name)
+}
+
+func (ec *executionContext) childFields_AuthStatus(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "passwordSet":
+		return ec.fieldContext_AuthStatus_passwordSet(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AuthStatus", field.Name)
 }
 
 func (ec *executionContext) childFields_BackupImportResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -5289,6 +5337,20 @@ func (ec *executionContext) field_Mutation_setMediaCover_args(ctx context.Contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_setPassword_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "newPassword",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["newPassword"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_setSourcePreference_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -6336,6 +6398,29 @@ func (ec *executionContext) _AudioTrack_url(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_AudioTrack_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AudioTrack", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AuthStatus_passwordSet(ctx context.Context, field graphql.CollectedField, obj *model.AuthStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuthStatus_passwordSet(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PasswordSet, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AuthStatus_passwordSet(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AuthStatus", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _BackupImportResult_mangaImported(ctx context.Context, field graphql.CollectedField, obj *model.BackupImportResult) (ret graphql.Marshaler) {
@@ -11877,6 +11962,73 @@ func (ec *executionContext) fieldContext_Mutation_importMihonBackup(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_setPassword(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setPassword(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetPassword(ctx, fc.Args["newPassword"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setPassword(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setPassword_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_disableServerAuth(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_disableServerAuth(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Mutation().DisableServerAuth(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_disableServerAuth(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Mutation", field, true, true, errors.New("field of type Boolean does not have child fields"))
+}
+
 func (ec *executionContext) _Mutation_startLibraryUpdate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12844,6 +12996,38 @@ func (ec *executionContext) fieldContext_Query_serverSettings(_ context.Context,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_ServerSetting(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_authStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_authStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().AuthStatus(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.AuthStatus) graphql.Marshaler {
+			return ec.marshalNAuthStatus2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐAuthStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_authStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AuthStatus(ctx, field)
 		},
 	}
 	return fc, nil
@@ -18865,6 +19049,44 @@ func (ec *executionContext) _AudioTrack(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var authStatusImplementors = []string{"AuthStatus"}
+
+func (ec *executionContext) _AuthStatus(ctx context.Context, sel ast.SelectionSet, obj *model.AuthStatus) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, authStatusImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AuthStatus")
+		case "passwordSet":
+			out.Values[i] = ec._AuthStatus_passwordSet(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var backupImportResultImplementors = []string{"BackupImportResult"}
 
 func (ec *executionContext) _BackupImportResult(ctx context.Context, sel ast.SelectionSet, obj *model.BackupImportResult) graphql.Marshaler {
@@ -21365,6 +21587,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "setPassword":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setPassword(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "disableServerAuth":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_disableServerAuth(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "startLibraryUpdate":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_startLibraryUpdate(ctx, field)
@@ -21697,6 +21933,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_serverSettings(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "authStatus":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_authStatus(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -24285,6 +24543,20 @@ func (ec *executionContext) marshalNAudioTrack2ᚖtsunaguᚋbackendᚋinternal�
 		return graphql.Null
 	}
 	return ec._AudioTrack(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNAuthStatus2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐAuthStatus(ctx context.Context, sel ast.SelectionSet, v model.AuthStatus) graphql.Marshaler {
+	return ec._AuthStatus(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNAuthStatus2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐAuthStatus(ctx context.Context, sel ast.SelectionSet, v *model.AuthStatus) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AuthStatus(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNBackupImportResult2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐBackupImportResult(ctx context.Context, sel ast.SelectionSet, v model.BackupImportResult) graphql.Marshaler {

@@ -25,6 +25,10 @@ type AudioTrack struct {
 	URL  string `json:"url"`
 }
 
+type AuthStatus struct {
+	PasswordSet bool `json:"passwordSet"`
+}
+
 type BackupImportResult struct {
 	MangaImported      int32    `json:"mangaImported"`
 	MangaSkipped       int32    `json:"mangaSkipped"`

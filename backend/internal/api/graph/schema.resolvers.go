@@ -1087,6 +1087,20 @@ func (r *mutationResolver) ImportMihonBackup(ctx context.Context, name string) (
 	}, nil
 }
 
+func (r *mutationResolver) SetPassword(ctx context.Context, newPassword string) (bool, error) {
+	if err := r.Am.SetPassword(ctx, newPassword); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *mutationResolver) DisableServerAuth(ctx context.Context) (bool, error) {
+	if err := r.Am.DisablePassword(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (r *mutationResolver) StartLibraryUpdate(ctx context.Context, folderID *string) (bool, error) {
 	var fid *int64
 	if folderID != nil {
@@ -1450,6 +1464,10 @@ func (r *queryResolver) ServerSettings(ctx context.Context) ([]*model.ServerSett
 		out = append(out, toServerSetting(s))
 	}
 	return out, nil
+}
+
+func (r *queryResolver) AuthStatus(ctx context.Context) (*model.AuthStatus, error) {
+	return &model.AuthStatus{PasswordSet: r.Am.PasswordSet(ctx)}, nil
 }
 
 func (r *queryResolver) ContentFilterRules(ctx context.Context) ([]*model.ContentFilterRule, error) {

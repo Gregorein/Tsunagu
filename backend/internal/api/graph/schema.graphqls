@@ -378,6 +378,10 @@ type DatabaseBackup {
   kind: String!
 }
 
+type AuthStatus {
+  passwordSet: Boolean!
+}
+
 type BackupImportResult {
   mangaImported: Int!
   mangaSkipped: Int!
@@ -438,6 +442,7 @@ type Query {
   installedExtensions: [Extension!]!
   cloudflareSolver: CloudflareSolver!
   serverSettings: [ServerSetting!]!
+  authStatus: AuthStatus!
   contentFilterRules: [ContentFilterRule!]!
   libraryTags(minCount: Int = 1): [TagFacet!]!
   libraryGenres(minCount: Int = 1): [TagFacet!]!
@@ -552,6 +557,9 @@ type Mutation {
 
   exportMihonBackup: DatabaseBackup!
   importMihonBackup(name: String!): BackupImportResult!
+
+  setPassword(newPassword: String!): Boolean!
+  disableServerAuth: Boolean!
 
   startLibraryUpdate(folderId: ID): Boolean!
 

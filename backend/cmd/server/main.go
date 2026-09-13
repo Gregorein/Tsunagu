@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -29,6 +31,7 @@ import (
 
 	"tsunagu/backend/internal/api/graph"
 	"tsunagu/backend/internal/api/rest"
+	"tsunagu/backend/internal/auth"
 	"tsunagu/backend/internal/backup"
 	"tsunagu/backend/internal/config"
 	"tsunagu/backend/internal/contentfilter"
@@ -285,12 +288,13 @@ func main() {
 		}
 		_, _ = w.Write([]byte("<h2>Connected to MyAnimeList as " + html.EscapeString(info.Username) + "</h2><p>You can close this tab.</p>"))
 	})
-	registerRoutes(mux)
-	registerGraphQL(mux, supervised, syncer, downloadMgr, trackerMgr, metadataMgr, streamResolver, q)
+	authMgr := auth.New(q)
+	registerRoutes(mux, authMgr)
+	registerGraphQL(mux, supervised, syncer, downloadMgr, trackerMgr, metadataMgr, streamResolver, q, authMgr)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           corsMiddleware(authMiddleware(cfg.APIToken, logRequests(mux))),
+		Handler:           corsMiddleware(authMiddleware(cfg.APIToken, authMgr, logRequests(mux))),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
@@ -406,12 +410,15 @@ func logRequests(next http.Handler) http.Handler {
 	})
 }
 
-func authMiddleware(token string, next http.Handler) http.Handler {
-	if token == "" {
-		return next
-	}
+func authMiddleware(token string, am *auth.Manager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/api/tracker/") || strings.HasPrefix(r.URL.Path, "/internal/") || r.Method == http.MethodOptions {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/api/auth/status" || r.URL.Path == "/api/auth/login" ||
+			strings.HasPrefix(r.URL.Path, "/api/tracker/") || strings.HasPrefix(r.URL.Path, "/internal/") || r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+		passwordSet := am.PasswordSet(r.Context())
+		if token == "" && !passwordSet {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -419,11 +426,17 @@ func authMiddleware(token string, next http.Handler) http.Handler {
 		if got == "" {
 			got = r.URL.Query().Get("token")
 		}
-		if got != token {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
+		if got != "" {
+			if token != "" && subtle.ConstantTimeCompare([]byte(got), []byte(token)) == 1 {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if passwordSet && am.VerifySession(r.Context(), got) {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
-		next.ServeHTTP(w, r)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	})
 }
 
@@ -440,8 +453,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func registerGraphQL(mux *http.ServeMux, sc *sandbox.SupervisedClient, sy *sync.Syncer, dm *download.Manager, tk *tracker.Manager, md *metadata.Manager, sr *streamresolve.Resolver, q *sqlcgen.Queries) {
-	resolver := &graph.Resolver{Sy: sy, Sc: sc, Dm: dm, Ls: localsource.New(q, globalMediaDir), Tk: tk, Md: md, Sr: sr, Q: q, DB: globalDB, Fs: globalFsMgr, Cfg: globalStore, Cf: globalCf, MediaDir: globalMediaDir, Name: serverName, Version: serverVersion, BuildTime: serverBuildTime}
+func registerGraphQL(mux *http.ServeMux, sc *sandbox.SupervisedClient, sy *sync.Syncer, dm *download.Manager, tk *tracker.Manager, md *metadata.Manager, sr *streamresolve.Resolver, q *sqlcgen.Queries, am *auth.Manager) {
+	resolver := &graph.Resolver{Sy: sy, Sc: sc, Dm: dm, Ls: localsource.New(q, globalMediaDir), Tk: tk, Md: md, Sr: sr, Q: q, DB: globalDB, Fs: globalFsMgr, Cfg: globalStore, Cf: globalCf, Am: am, MediaDir: globalMediaDir, Name: serverName, Version: serverVersion, BuildTime: serverBuildTime}
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 	srv.Use(extension.FixedComplexityLimit(8000))
 	srv.SetErrorPresenter(sandboxErrorPresenter)
@@ -508,10 +521,36 @@ func withLoaders(q *sqlcgen.Queries, next http.Handler) http.Handler {
 	})
 }
 
-func registerRoutes(mux *http.ServeMux) {
+func registerRoutes(mux *http.ServeMux, am *auth.Manager) {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
+	})
+
+	mux.HandleFunc("/api/auth/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"passwordRequired": am.PasswordSet(r.Context())})
+	})
+
+	mux.HandleFunc("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		token, exp, err := am.Login(r.Context(), req.Password)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"token": token, "expiresAt": exp.UTC().Format(time.RFC3339)})
 	})
 }
 
