@@ -108,7 +108,7 @@ class ExtensionRegistry(
 
     private fun replaceFile(target: File, write: () -> Unit) {
         var lastErr: Throwable? = null
-        repeat(5) { attempt ->
+        repeat(8) { attempt ->
             try {
                 write()
                 return

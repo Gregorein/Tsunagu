@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.installConscrypt
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
+import java.net.URLConnection
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import org.koin.core.context.startKoin
@@ -15,6 +16,10 @@ import tsunagu.source.GetSource
 import java.io.File
 
 fun main() {
+    // JarURLConnection caches an open JarFile handle globally by default, outside
+    // any classloader's lifecycle — on Windows that keeps extension jars locked
+    // even after their classloader is closed, breaking updates/uninstalls.
+    URLConnection.setDefaultUseCaches("jar", false)
     installConscrypt()
     startKoin {
         modules(
