@@ -58,6 +58,9 @@ var migration0012 string
 //go:embed migrations/0013_round_chapter_numbers.sql
 var migration0013 string
 
+//go:embed migrations/0014_moderate_filter_mature_exempt.sql
+var migration0014 string
+
 var migrations = []struct {
 	name string
 	sql  string
@@ -75,6 +78,7 @@ var migrations = []struct {
 	{"0011_normalize_extension_lang.sql", migration0011},
 	{"0012_extension_source_id.sql", migration0012},
 	{"0013_round_chapter_numbers.sql", migration0013},
+	{"0014_moderate_filter_mature_exempt.sql", migration0014},
 }
 
 func Open(path string) (*sql.DB, error) {

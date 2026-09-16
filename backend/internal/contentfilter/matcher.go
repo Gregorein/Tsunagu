@@ -47,7 +47,6 @@ type Rule struct {
 }
 
 var alias = map[string]string{
-	"mature":          "adult",
 	"18+":             "adult",
 	"r-18":            "adult",
 	"r18":             "adult",
