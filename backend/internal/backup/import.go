@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"tsunagu/backend/internal/backup/mihonpb"
+	"tsunagu/backend/internal/chapternum"
 	"tsunagu/backend/internal/db/sqlcgen"
 )
 
@@ -120,7 +121,7 @@ func Import(ctx context.Context, q *sqlcgen.Queries, b *mihonpb.Backup) (ImportR
 				MediaID:     media.ID,
 				ExternalID:  bc.Url,
 				Title:       nullString(bc.Name),
-				Number:      sql.NullFloat64{Float64: float64(bc.ChapterNumber), Valid: true},
+				Number:      sql.NullFloat64{Float64: chapternum.Round(float64(bc.ChapterNumber)), Valid: true},
 				UploadedAt:  sql.NullInt64{Int64: bc.DateUpload / 1000, Valid: bc.DateUpload > 0},
 				SourceOrder: sql.NullInt64{Int64: bc.SourceOrder, Valid: true},
 				Scanlator:   derefOr(bc.Scanlator, ""),

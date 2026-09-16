@@ -216,6 +216,7 @@ type ComplexityRoot struct {
 		ExternalID         func(childComplexity int) int
 		Folders            func(childComplexity int) int
 		Genres             func(childComplexity int) int
+		HasCoverOverride   func(childComplexity int) int
 		ID                 func(childComplexity int) int
 		InLibrary          func(childComplexity int) int
 		LastViewedAt       func(childComplexity int) int
@@ -279,6 +280,7 @@ type ComplexityRoot struct {
 		DeleteDatabaseBackup      func(childComplexity int, name string) int
 		DeleteDownload            func(childComplexity int, mediaID string, chapterIds []string) int
 		DeleteFolder              func(childComplexity int, folderID string) int
+		DeleteLocalSeries         func(childComplexity int, mediaID string) int
 		DeleteRepository          func(childComplexity int, repositoryID string) int
 		DequeueDownload           func(childComplexity int, mediaID string, chapterID string) int
 		DisableServerAuth         func(childComplexity int) int
@@ -298,6 +300,7 @@ type ComplexityRoot struct {
 		RefreshMetadata           func(childComplexity int, mediaID string, syncChapters *bool) int
 		RefreshMetadataMatch      func(childComplexity int, mediaID string) int
 		RelocateDownloads         func(childComplexity int, newPath string, migrate bool) int
+		RelocateLocalSource       func(childComplexity int, newPath string, migrate bool) int
 		RemoveContentFilterRule   func(childComplexity int, id string) int
 		RemoveMediaFromFolder     func(childComplexity int, mediaID string, folderID string) int
 		RenameFolder              func(childComplexity int, folderID string, name string) int
@@ -389,6 +392,13 @@ type ComplexityRoot struct {
 	}
 
 	RelocateDownloadsResult struct {
+		Migrated   func(childComplexity int) int
+		MovedBytes func(childComplexity int) int
+		MovedFiles func(childComplexity int) int
+		NewPath    func(childComplexity int) int
+	}
+
+	RelocateLocalSourceResult struct {
 		Migrated   func(childComplexity int) int
 		MovedBytes func(childComplexity int) int
 		MovedFiles func(childComplexity int) int
@@ -662,6 +672,7 @@ type MutationResolver interface {
 	ClearImageCache(ctx context.Context) (bool, error)
 	ClearStorageCategory(ctx context.Context, key string) (*model.StorageInfo, error)
 	RelocateDownloads(ctx context.Context, newPath string, migrate bool) (*model.RelocateDownloadsResult, error)
+	RelocateLocalSource(ctx context.Context, newPath string, migrate bool) (*model.RelocateLocalSourceResult, error)
 	CreateDatabaseBackup(ctx context.Context) (*model.DatabaseBackup, error)
 	DeleteDatabaseBackup(ctx context.Context, name string) (bool, error)
 	ExportMihonBackup(ctx context.Context) (*model.DatabaseBackup, error)
@@ -672,6 +683,7 @@ type MutationResolver interface {
 	SetMediaCover(ctx context.Context, mediaID string, url *string) (*model.Media, error)
 	RefetchMediaCover(ctx context.Context, mediaID string) (*model.Media, error)
 	RescanLocalMedia(ctx context.Context) ([]*model.Media, error)
+	DeleteLocalSeries(ctx context.Context, mediaID string) (bool, error)
 	TrackerLogin(ctx context.Context, trackerKey string, token string) (*model.Tracker, error)
 	TrackerLogout(ctx context.Context, trackerKey string) (bool, error)
 	BindTrack(ctx context.Context, mediaID string, trackerKey string, remoteID string) (*model.TrackLink, error)
@@ -1492,6 +1504,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Media.Genres(childComplexity), true
+	case "Media.hasCoverOverride":
+		if e.ComplexityRoot.Media.HasCoverOverride == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Media.HasCoverOverride(childComplexity), true
 	case "Media.id":
 		if e.ComplexityRoot.Media.ID == nil {
 			break
@@ -1862,6 +1880,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteFolder(childComplexity, args["folderId"].(string)), true
+	case "Mutation.deleteLocalSeries":
+		if e.ComplexityRoot.Mutation.DeleteLocalSeries == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteLocalSeries_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteLocalSeries(childComplexity, args["mediaId"].(string)), true
 	case "Mutation.deleteRepository":
 		if e.ComplexityRoot.Mutation.DeleteRepository == nil {
 			break
@@ -2051,6 +2080,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RelocateDownloads(childComplexity, args["newPath"].(string), args["migrate"].(bool)), true
+	case "Mutation.relocateLocalSource":
+		if e.ComplexityRoot.Mutation.RelocateLocalSource == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_relocateLocalSource_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RelocateLocalSource(childComplexity, args["newPath"].(string), args["migrate"].(bool)), true
 	case "Mutation.removeContentFilterRule":
 		if e.ComplexityRoot.Mutation.RemoveContentFilterRule == nil {
 			break
@@ -2799,6 +2839,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RelocateDownloadsResult.NewPath(childComplexity), true
+
+	case "RelocateLocalSourceResult.migrated":
+		if e.ComplexityRoot.RelocateLocalSourceResult.Migrated == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateLocalSourceResult.Migrated(childComplexity), true
+	case "RelocateLocalSourceResult.movedBytes":
+		if e.ComplexityRoot.RelocateLocalSourceResult.MovedBytes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateLocalSourceResult.MovedBytes(childComplexity), true
+	case "RelocateLocalSourceResult.movedFiles":
+		if e.ComplexityRoot.RelocateLocalSourceResult.MovedFiles == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateLocalSourceResult.MovedFiles(childComplexity), true
+	case "RelocateLocalSourceResult.newPath":
+		if e.ComplexityRoot.RelocateLocalSourceResult.NewPath == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RelocateLocalSourceResult.NewPath(childComplexity), true
 
 	case "Repository.addedAt":
 		if e.ComplexityRoot.Repository.AddedAt == nil {
@@ -3959,6 +4024,8 @@ func (ec *executionContext) childFields_Media(ctx context.Context, field graphql
 		return ec.fieldContext_Media_title(ctx, field)
 	case "thumbnailUrl":
 		return ec.fieldContext_Media_thumbnailUrl(ctx, field)
+	case "hasCoverOverride":
+		return ec.fieldContext_Media_hasCoverOverride(ctx, field)
 	case "description":
 		return ec.fieldContext_Media_description(ctx, field)
 	case "status":
@@ -4113,6 +4180,20 @@ func (ec *executionContext) childFields_RelocateDownloadsResult(ctx context.Cont
 		return ec.fieldContext_RelocateDownloadsResult_movedBytes(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type RelocateDownloadsResult", field.Name)
+}
+
+func (ec *executionContext) childFields_RelocateLocalSourceResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "newPath":
+		return ec.fieldContext_RelocateLocalSourceResult_newPath(ctx, field)
+	case "migrated":
+		return ec.fieldContext_RelocateLocalSourceResult_migrated(ctx, field)
+	case "movedFiles":
+		return ec.fieldContext_RelocateLocalSourceResult_movedFiles(ctx, field)
+	case "movedBytes":
+		return ec.fieldContext_RelocateLocalSourceResult_movedBytes(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RelocateLocalSourceResult", field.Name)
 }
 
 func (ec *executionContext) childFields_Repository(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4843,6 +4924,20 @@ func (ec *executionContext) field_Mutation_deleteFolder_args(ctx context.Context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_deleteLocalSeries_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "mediaId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["mediaId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_deleteRepository_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -5104,6 +5199,28 @@ func (ec *executionContext) field_Mutation_refreshMetadata_args(ctx context.Cont
 }
 
 func (ec *executionContext) field_Mutation_relocateDownloads_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "newPath",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["newPath"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "migrate",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["migrate"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_relocateLocalSource_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "newPath",
@@ -8975,6 +9092,29 @@ func (ec *executionContext) fieldContext_Media_thumbnailUrl(_ context.Context, f
 	return graphql.NewScalarFieldContext("Media", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Media_hasCoverOverride(ctx context.Context, field graphql.CollectedField, obj *model.Media) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Media_hasCoverOverride(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HasCoverOverride, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Media_hasCoverOverride(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Media", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
 func (ec *executionContext) _Media_description(ctx context.Context, field graphql.CollectedField, obj *model.Media) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11810,6 +11950,50 @@ func (ec *executionContext) fieldContext_Mutation_relocateDownloads(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_relocateLocalSource(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_relocateLocalSource(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RelocateLocalSource(ctx, fc.Args["newPath"].(string), fc.Args["migrate"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.RelocateLocalSourceResult) graphql.Marshaler {
+			return ec.marshalNRelocateLocalSourceResult2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRelocateLocalSourceResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_relocateLocalSource(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RelocateLocalSourceResult(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_relocateLocalSource_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createDatabaseBackup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12189,6 +12373,50 @@ func (ec *executionContext) fieldContext_Mutation_rescanLocalMedia(_ context.Con
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Media(ctx, field)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteLocalSeries(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteLocalSeries(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteLocalSeries(ctx, fc.Args["mediaId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteLocalSeries(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteLocalSeries_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -14595,6 +14823,98 @@ func (ec *executionContext) _RelocateDownloadsResult_movedBytes(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_RelocateDownloadsResult_movedBytes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RelocateDownloadsResult", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateLocalSourceResult_newPath(ctx context.Context, field graphql.CollectedField, obj *model.RelocateLocalSourceResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateLocalSourceResult_newPath(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.NewPath, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateLocalSourceResult_newPath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateLocalSourceResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateLocalSourceResult_migrated(ctx context.Context, field graphql.CollectedField, obj *model.RelocateLocalSourceResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateLocalSourceResult_migrated(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Migrated, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateLocalSourceResult_migrated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateLocalSourceResult", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateLocalSourceResult_movedFiles(ctx context.Context, field graphql.CollectedField, obj *model.RelocateLocalSourceResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateLocalSourceResult_movedFiles(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MovedFiles, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateLocalSourceResult_movedFiles(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateLocalSourceResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _RelocateLocalSourceResult_movedBytes(ctx context.Context, field graphql.CollectedField, obj *model.RelocateLocalSourceResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RelocateLocalSourceResult_movedBytes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MovedBytes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RelocateLocalSourceResult_movedBytes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RelocateLocalSourceResult", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
 func (ec *executionContext) _Repository_id(ctx context.Context, field graphql.CollectedField, obj *model.Repository) (ret graphql.Marshaler) {
@@ -20403,6 +20723,11 @@ func (ec *executionContext) _Media(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "hasCoverOverride":
+			out.Values[i] = ec._Media_hasCoverOverride(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "description":
 			out.Values[i] = ec._Media_description(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -21559,6 +21884,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "relocateLocalSource":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_relocateLocalSource(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createDatabaseBackup":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createDatabaseBackup(ctx, field)
@@ -21625,6 +21957,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "rescanLocalMedia":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_rescanLocalMedia(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteLocalSeries":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteLocalSeries(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -22763,6 +23102,59 @@ func (ec *executionContext) _RelocateDownloadsResult(ctx context.Context, sel as
 			}
 		case "movedBytes":
 			out.Values[i] = ec._RelocateDownloadsResult_movedBytes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var relocateLocalSourceResultImplementors = []string{"RelocateLocalSourceResult"}
+
+func (ec *executionContext) _RelocateLocalSourceResult(ctx context.Context, sel ast.SelectionSet, obj *model.RelocateLocalSourceResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, relocateLocalSourceResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RelocateLocalSourceResult")
+		case "newPath":
+			out.Values[i] = ec._RelocateLocalSourceResult_newPath(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "migrated":
+			out.Values[i] = ec._RelocateLocalSourceResult_migrated(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "movedFiles":
+			out.Values[i] = ec._RelocateLocalSourceResult_movedFiles(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "movedBytes":
+			out.Values[i] = ec._RelocateLocalSourceResult_movedBytes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -25135,6 +25527,20 @@ func (ec *executionContext) marshalNRelocateDownloadsResult2ᚖtsunaguᚋbackend
 		return graphql.Null
 	}
 	return ec._RelocateDownloadsResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNRelocateLocalSourceResult2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRelocateLocalSourceResult(ctx context.Context, sel ast.SelectionSet, v model.RelocateLocalSourceResult) graphql.Marshaler {
+	return ec._RelocateLocalSourceResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNRelocateLocalSourceResult2ᚖtsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRelocateLocalSourceResult(ctx context.Context, sel ast.SelectionSet, v *model.RelocateLocalSourceResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RelocateLocalSourceResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNRepository2tsunaguᚋbackendᚋinternalᚋapiᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v model.Repository) graphql.Marshaler {

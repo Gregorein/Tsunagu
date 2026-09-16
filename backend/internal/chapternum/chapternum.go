@@ -1,6 +1,7 @@
 package chapternum
 
 import (
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,16 +21,25 @@ func FromTitle(title string) float64 {
 	for _, re := range regexes {
 		if m := re.FindStringSubmatch(t); m != nil {
 			if f, err := strconv.ParseFloat(m[1], 64); err == nil && f > 0 {
-				return f
+				return Round(f)
 			}
 		}
 	}
 	return 0
 }
 
+// Round constrains a chapter/episode number to 2 decimal places. Extension
+// data crosses a Kotlin Float -> Double widening on its way in (see the
+// sandbox's gRPC layer), which turns clean values like 19.1 into noise like
+// 19.100000381469727; this is the single point every number passes through
+// before being persisted, so rounding here fixes it everywhere downstream.
+func Round(num float64) float64 {
+	return math.Round(num*100) / 100
+}
+
 func Resolve(num float64, title string) float64 {
 	if num > 0 {
-		return num
+		return Round(num)
 	}
 	return FromTitle(title)
 }

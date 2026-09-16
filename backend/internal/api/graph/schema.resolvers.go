@@ -1030,6 +1030,31 @@ func (r *mutationResolver) RelocateDownloads(ctx context.Context, newPath string
 	}, nil
 }
 
+func (r *mutationResolver) RelocateLocalSource(ctx context.Context, newPath string, migrate bool) (*model.RelocateLocalSourceResult, error) {
+	res, err := r.Ls.Relocate(newPath, migrate)
+	if err != nil {
+		return nil, err
+	}
+	persist := res.NewPath
+	if abs, aerr := filepath.Abs(filepath.Join(r.MediaDir, "local")); aerr == nil && abs == res.NewPath {
+		persist = ""
+	}
+	if _, err := r.Cfg.Set(ctx, "local_source_dir", persist); err != nil {
+		return nil, fmt.Errorf("persist local_source_dir: %w", err)
+	}
+	// Re-ingest from the new location so manga_pages/etc. point at fresh
+	// paths and any stale rows from the old location get pruned.
+	if _, err := r.Ls.Scan(ctx); err != nil {
+		return nil, fmt.Errorf("rescan after relocate: %w", err)
+	}
+	return &model.RelocateLocalSourceResult{
+		NewPath:    res.NewPath,
+		Migrated:   migrate,
+		MovedFiles: int32(res.MovedFiles),
+		MovedBytes: float64(res.MovedBytes),
+	}, nil
+}
+
 func (r *mutationResolver) CreateDatabaseBackup(ctx context.Context) (*model.DatabaseBackup, error) {
 	b, err := r.createBackup(ctx)
 	if err != nil {
@@ -1171,6 +1196,17 @@ func (r *mutationResolver) RescanLocalMedia(ctx context.Context) ([]*model.Media
 		out = append(out, toMedia(row, r.MediaDir))
 	}
 	return out, nil
+}
+
+func (r *mutationResolver) DeleteLocalSeries(ctx context.Context, mediaID string) (bool, error) {
+	mid, err := parseID(mediaID)
+	if err != nil {
+		return false, err
+	}
+	if err := r.Ls.DeleteLocalSeries(ctx, mid); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *mutationResolver) TrackerLogin(ctx context.Context, trackerKey string, token string) (*model.Tracker, error) {

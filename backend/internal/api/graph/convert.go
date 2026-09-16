@@ -395,6 +395,7 @@ func toMedia(l sqlcgen.Medium, mediaDir string) *model.Media {
 		ContentType:        contentType(l.ContentType),
 		Title:              l.Title,
 		ThumbnailURL:       thumbnailURL,
+		HasCoverOverride:   l.CoverOverride.Valid && l.CoverOverride.String != "",
 		Description:        nullStringPtr(l.Description),
 		Status:             nullStringPtr(l.Status),
 		Author:             nullStringPtr(l.Author),

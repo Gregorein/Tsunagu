@@ -44,6 +44,7 @@ type Querier interface {
 	DeleteGenre(ctx context.Context, id int64) error
 	DeleteMangaPage(ctx context.Context, arg DeleteMangaPageParams) error
 	DeleteMangaPages(ctx context.Context, chapterID int64) error
+	DeleteMedia(ctx context.Context, id int64) error
 	DeleteMetadataLink(ctx context.Context, arg DeleteMetadataLinkParams) error
 	DeleteNovelChapterContent(ctx context.Context, chapterID int64) error
 	DeleteRepository(ctx context.Context, id int64) error

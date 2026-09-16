@@ -126,3 +126,6 @@ RETURNING *;
 
 -- name: UpdateLocalMedia :one
 UPDATE media SET title = ?, cover_local_path = COALESCE(?, cover_local_path) WHERE id = ? RETURNING *;
+
+-- name: DeleteMedia :exec
+DELETE FROM media WHERE id = ?;

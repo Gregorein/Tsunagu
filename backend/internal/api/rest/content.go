@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"archive/zip"
 	"context"
 	"database/sql"
 	"encoding/base64"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"tsunagu/backend/internal/db/sqlcgen"
+	"tsunagu/backend/internal/localsource"
 	"tsunagu/backend/internal/sandbox"
 	sandboxv1 "tsunagu/backend/internal/sandbox/gen/sandbox/v1"
 	"tsunagu/backend/internal/streamresolve"
@@ -108,12 +110,19 @@ func (h *ContentHandler) servePage(w http.ResponseWriter, r *http.Request, chapt
 	rows, err := h.Q.ListMangaPages(ctx, chapterID)
 	if err == nil {
 		for _, row := range rows {
-			if int(row.PageNumber) == pageNumber && row.LocalPath.Valid && row.LocalPath.String != "" {
-				if _, statErr := os.Stat(row.LocalPath.String); statErr == nil {
-					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-					http.ServeFile(w, r, row.LocalPath.String)
+			if int(row.PageNumber) != pageNumber || !row.LocalPath.Valid || row.LocalPath.String == "" {
+				continue
+			}
+			if archivePath, entryName, ok := localsource.ParseZipPagePath(row.LocalPath.String); ok {
+				if serveZipEntry(w, archivePath, entryName) {
 					return
 				}
+				continue
+			}
+			if _, statErr := os.Stat(row.LocalPath.String); statErr == nil {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				http.ServeFile(w, r, row.LocalPath.String)
+				return
 			}
 		}
 	}
@@ -1258,6 +1267,55 @@ func textContentType(path string) string {
 	default:
 		return "text/plain; charset=utf-8"
 	}
+}
+
+func imageContentType(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	case ".avif":
+		return "image/avif"
+	case ".bmp":
+		return "image/bmp"
+	default:
+		return "image/jpeg"
+	}
+}
+
+// serveZipEntry reads a single page directly out of a CBZ/ZIP archive
+// without extracting it to disk. Returns false if the entry couldn't be
+// served, so the caller can fall through to other page sources.
+func serveZipEntry(w http.ResponseWriter, archivePath, entryName string) bool {
+	zr, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return false
+	}
+	defer zr.Close()
+
+	for _, f := range zr.File {
+		if f.Name != entryName {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return false
+		}
+		defer rc.Close()
+		data, err := io.ReadAll(rc)
+		if err != nil {
+			return false
+		}
+		w.Header().Set("Content-Type", imageContentType(f.Name))
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		_, _ = w.Write(data)
+		return true
+	}
+	return false
 }
 
 var _ = sql.ErrNoRows

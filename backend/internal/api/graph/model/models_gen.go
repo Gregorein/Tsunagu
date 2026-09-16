@@ -221,6 +221,7 @@ type Media struct {
 	ContentType        ContentType        `json:"contentType"`
 	Title              string             `json:"title"`
 	ThumbnailURL       *string            `json:"thumbnailUrl,omitempty"`
+	HasCoverOverride   bool               `json:"hasCoverOverride"`
 	Description        *string            `json:"description,omitempty"`
 	Status             *string            `json:"status,omitempty"`
 	Author             *string            `json:"author,omitempty"`
@@ -299,6 +300,13 @@ type RecentChapter struct {
 }
 
 type RelocateDownloadsResult struct {
+	NewPath    string  `json:"newPath"`
+	Migrated   bool    `json:"migrated"`
+	MovedFiles int32   `json:"movedFiles"`
+	MovedBytes float64 `json:"movedBytes"`
+}
+
+type RelocateLocalSourceResult struct {
 	NewPath    string  `json:"newPath"`
 	Migrated   bool    `json:"migrated"`
 	MovedFiles int32   `json:"movedFiles"`

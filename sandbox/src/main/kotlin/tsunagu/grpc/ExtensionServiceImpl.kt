@@ -733,7 +733,10 @@ class ExtensionServiceImpl(
         Sandbox.ChapterSummary.newBuilder()
             .setSourceChapterId(chapter.url)
             .setName(chapter.name)
-            .setNumber(chapter.chapter_number.toDouble())
+            // chapter_number is a Float; toDouble() bit-widens it, turning clean
+            // values like 19.1f into noise like 19.100000381469727. Round-tripping
+            // through the Float's shortest string form recovers the intended value.
+            .setNumber(chapter.chapter_number.toString().toDouble())
             .setUploadTimestamp(chapter.date_upload)
             .build()
 

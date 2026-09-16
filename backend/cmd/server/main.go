@@ -232,6 +232,23 @@ func main() {
 		downloadMgr.SetDownloadsDir(resolveDownloadsDir())
 	})
 
+	resolveLocalSourceDir := func() string {
+		d := strings.TrimSpace(store.Config().LocalSourceDir)
+		if d == "" {
+			return ""
+		}
+		if abs, err := filepath.Abs(d); err == nil {
+			return abs
+		}
+		return d
+	}
+	localScanner := localsource.New(q, absMediaDir)
+	localScanner.SetEnricher(metadataMgr)
+	localScanner.SetLocalDir(resolveLocalSourceDir())
+	store.OnChange("local_source_dir", func(context.Context) {
+		localScanner.SetLocalDir(resolveLocalSourceDir())
+	})
+
 	streamResolver := streamresolve.New(supervised)
 
 	if cfg.MetadataBackfill {
@@ -290,7 +307,7 @@ func main() {
 	})
 	authMgr := auth.New(q)
 	registerRoutes(mux, authMgr)
-	registerGraphQL(mux, supervised, syncer, downloadMgr, trackerMgr, metadataMgr, streamResolver, q, authMgr)
+	registerGraphQL(mux, supervised, syncer, downloadMgr, trackerMgr, metadataMgr, streamResolver, q, authMgr, localScanner)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -453,8 +470,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func registerGraphQL(mux *http.ServeMux, sc *sandbox.SupervisedClient, sy *sync.Syncer, dm *download.Manager, tk *tracker.Manager, md *metadata.Manager, sr *streamresolve.Resolver, q *sqlcgen.Queries, am *auth.Manager) {
-	resolver := &graph.Resolver{Sy: sy, Sc: sc, Dm: dm, Ls: localsource.New(q, globalMediaDir), Tk: tk, Md: md, Sr: sr, Q: q, DB: globalDB, Fs: globalFsMgr, Cfg: globalStore, Cf: globalCf, Am: am, MediaDir: globalMediaDir, Name: serverName, Version: serverVersion, BuildTime: serverBuildTime}
+func registerGraphQL(mux *http.ServeMux, sc *sandbox.SupervisedClient, sy *sync.Syncer, dm *download.Manager, tk *tracker.Manager, md *metadata.Manager, sr *streamresolve.Resolver, q *sqlcgen.Queries, am *auth.Manager, ls *localsource.Scanner) {
+	resolver := &graph.Resolver{Sy: sy, Sc: sc, Dm: dm, Ls: ls, Tk: tk, Md: md, Sr: sr, Q: q, DB: globalDB, Fs: globalFsMgr, Cfg: globalStore, Cf: globalCf, Am: am, MediaDir: globalMediaDir, Name: serverName, Version: serverVersion, BuildTime: serverBuildTime}
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 	srv.Use(extension.FixedComplexityLimit(8000))
 	srv.SetErrorPresenter(sandboxErrorPresenter)

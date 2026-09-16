@@ -33,13 +33,19 @@ func (h *CoverProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// "original" bypasses any user-set cover_override and serves the source
+	// extension's own cover, so the picker UI can show/restore it even after
+	// an override has been applied (overrides and originals share the same
+	// entry id, so they need distinct cache slots below).
+	original := r.URL.Query().Get("source") == "original"
+
 	entry, err := h.Q.GetMedia(ctx, entryID)
 	if err != nil {
 		http.Error(w, "library entry not found", http.StatusNotFound)
 		return
 	}
 
-	if entry.CoverLocalPath.Valid && entry.CoverLocalPath.String != "" {
+	if !original && entry.CoverLocalPath.Valid && entry.CoverLocalPath.String != "" {
 		if data, ct, ok := readCachedCover(entry.CoverLocalPath.String); ok {
 			w.Header().Set("Content-Type", ct)
 			w.Header().Set("Cache-Control", "public, max-age=86400")
@@ -49,7 +55,7 @@ func (h *CoverProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var candidates []string
-	if entry.CoverOverride.Valid && entry.CoverOverride.String != "" {
+	if !original && entry.CoverOverride.Valid && entry.CoverOverride.String != "" {
 		candidates = append(candidates, entry.CoverOverride.String)
 	}
 	if entry.CoverPath.Valid && entry.CoverPath.String != "" {
@@ -64,6 +70,9 @@ func (h *CoverProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	destName := strconv.FormatInt(entryID, 10)
+	if original {
+		destName += "-original"
+	}
 	var localPath string
 	for _, u := range candidates {
 		if localPath, err = image.DownloadToFile(u, h.CoverCacheDir, destName); err == nil {
@@ -75,10 +84,12 @@ func (h *CoverProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.Q.UpdateMediaCoverLocalPath(ctx, sqlcgen.UpdateMediaCoverLocalPathParams{
-		ID:             entryID,
-		CoverLocalPath: sql.NullString{String: localPath, Valid: true},
-	})
+	if !original {
+		_ = h.Q.UpdateMediaCoverLocalPath(ctx, sqlcgen.UpdateMediaCoverLocalPathParams{
+			ID:             entryID,
+			CoverLocalPath: sql.NullString{String: localPath, Valid: true},
+		})
+	}
 
 	data, ct, ok := readCachedCover(localPath)
 	if !ok {

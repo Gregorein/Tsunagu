@@ -156,6 +156,15 @@ func (q *Queries) CreateSourcelessMedia(ctx context.Context, arg CreateSourceles
 	return i, err
 }
 
+const deleteMedia = `-- name: DeleteMedia :exec
+DELETE FROM media WHERE id = ?
+`
+
+func (q *Queries) DeleteMedia(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMedia, id)
+	return err
+}
+
 const getLocalMediaByExternalID = `-- name: GetLocalMediaByExternalID :one
 SELECT id, extension_id, extension_name, external_id, content_type, title, cover_path, cover_local_path, description, status, author, artist, extension_removed_at, added_at, last_viewed_at, details_fetched_at, updated_at, chapters_synced_at, cover_override, content_block_rank FROM media WHERE extension_id IS NULL AND external_id = ?
 `
