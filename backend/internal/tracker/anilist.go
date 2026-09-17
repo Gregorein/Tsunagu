@@ -52,8 +52,10 @@ func (a *AniList) AuthURL() string {
 	return fmt.Sprintf("%s?client_id=%s&response_type=token", anilistAuthBase, a.clientID)
 }
 
+const maxRateLimitTries = 2
+
 func (a *AniList) query(ctx context.Context, token, doc string, vars map[string]any, out any) error {
-	for attempt := 0; ; attempt++ {
+	for attempt := 0; attempt < maxRateLimitTries; attempt++ {
 		if err := anilistrl.Wait(ctx); err != nil {
 			return err
 		}
@@ -73,13 +75,13 @@ func (a *AniList) query(ctx context.Context, token, doc string, vars map[string]
 		}
 		raw, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusTooManyRequests {
-			anilistrl.Backoff(retryAfterSeconds(resp))
-			if attempt == 0 {
+		if err := anilistrl.Check(resp.StatusCode, resp.Header.Get("Retry-After"), raw); err != nil {
+			if attempt+1 < maxRateLimitTries {
 				continue
 			}
-			return fmt.Errorf("anilist: %s: %s", resp.Status, truncate(string(raw), 200))
+			return fmt.Errorf("%w: %s: %s", err, resp.Status, truncate(string(raw), 200))
 		}
+		anilistrl.Clear()
 		if resp.StatusCode == http.StatusUnauthorized {
 			return ErrReauth
 		}
@@ -100,11 +102,7 @@ func (a *AniList) query(ctx context.Context, token, doc string, vars map[string]
 		}
 		return json.Unmarshal(env.Data, out)
 	}
-}
-
-func retryAfterSeconds(resp *http.Response) int {
-	n, _ := strconv.Atoi(strings.TrimSpace(resp.Header.Get("Retry-After")))
-	return n
+	return anilistrl.ErrRateLimited
 }
 
 func (a *AniList) Exchange(ctx context.Context, pasted string) (Auth, error) {

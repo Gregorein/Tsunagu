@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"tsunagu/backend/internal/anilistrl"
 	"tsunagu/backend/internal/db/sqlcgen"
 )
 
@@ -326,8 +327,15 @@ func (m *Manager) PollAll(ctx context.Context) {
 		log.Printf("tracker poll: %v", err)
 		return
 	}
-	for _, id := range ids {
+	for i, id := range ids {
+		if ctx.Err() != nil {
+			return
+		}
 		m.SyncMediaProgress(ctx, id)
+		if anilistrl.CoolingDown() {
+			log.Printf("tracker poll: anilist rate-limited, paused after %d/%d media", i+1, len(ids))
+			return
+		}
 	}
 	if len(ids) > 0 {
 		log.Printf("tracker poll: reconciled %d media", len(ids))

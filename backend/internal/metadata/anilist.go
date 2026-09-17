@@ -29,8 +29,10 @@ func NewAniList() *AniList {
 
 func (a *AniList) Key() string { return "anilist" }
 
+const maxRateLimitTries = 2
+
 func (a *AniList) query(ctx context.Context, doc string, vars map[string]any, out any) error {
-	for attempt := 0; ; attempt++ {
+	for attempt := 0; attempt < maxRateLimitTries; attempt++ {
 		if err := anilistrl.Wait(ctx); err != nil {
 			return err
 		}
@@ -47,14 +49,13 @@ func (a *AniList) query(ctx context.Context, doc string, vars map[string]any, ou
 		}
 		raw, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusTooManyRequests {
-			n, _ := strconv.Atoi(strings.TrimSpace(resp.Header.Get("Retry-After")))
-			anilistrl.Backoff(n)
-			if attempt == 0 {
+		if err := anilistrl.Check(resp.StatusCode, resp.Header.Get("Retry-After"), raw); err != nil {
+			if attempt+1 < maxRateLimitTries {
 				continue
 			}
-			return fmt.Errorf("anilist: %s: %s", resp.Status, snip(string(raw), 200))
+			return fmt.Errorf("%w: %s: %s", err, resp.Status, snip(string(raw), 200))
 		}
+		anilistrl.Clear()
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("anilist: %s: %s", resp.Status, snip(string(raw), 200))
 		}
@@ -72,6 +73,7 @@ func (a *AniList) query(ctx context.Context, doc string, vars map[string]any, ou
 		}
 		return json.Unmarshal(env.Data, out)
 	}
+	return anilistrl.ErrRateLimited
 }
 
 const mediaSelection = `

@@ -60,7 +60,7 @@ func Defaults() Config {
 		SandboxExtDir:        "sandbox/extensions",
 		SandboxStorageDir:    "data/plugin-storage",
 		NovelEnabled:         true,
-		MetadataBackfill:     true,
+		MetadataBackfill:     false,
 		IdleTimeoutMin:       15,
 		TrackerPollHours:     6,
 		BackupIntervalHours:  24,

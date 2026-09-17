@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"tsunagu/backend/internal/anilistrl"
 	"tsunagu/backend/internal/db/sqlcgen"
 )
 
@@ -86,7 +88,7 @@ func (m *Manager) EnrichLibrary(ctx context.Context) {
 		return
 	}
 	log.Printf("metadata backfill: %d unmatched media, working through them (~%dm)",
-		len(ids), len(ids)*1500/60000+1)
+		len(ids), int(time.Duration(len(ids))*anilistrl.MinGap/time.Minute)+1)
 	matched := 0
 	for i, id := range ids {
 		if ctx.Err() != nil {
@@ -97,6 +99,10 @@ func (m *Manager) EnrichLibrary(ctx context.Context) {
 			continue
 		}
 		_ = m.tryMatch(ctx, media)
+		if anilistrl.CoolingDown() {
+			log.Printf("metadata backfill: anilist rate-limited, paused after %d/%d", i+1, len(ids))
+			return
+		}
 		if after, _ := m.q.ListMetadataLinksByMedia(ctx, id); len(after) > 0 {
 			matched++
 		}

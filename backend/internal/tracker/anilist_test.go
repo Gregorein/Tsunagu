@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"tsunagu/backend/internal/anilistrl"
 )
 
 func TestStatusRoundTrip(t *testing.T) {
@@ -177,6 +180,9 @@ func TestListLibrary(t *testing.T) {
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
+
+	anilistrl.TestingAdjust(0, time.Second)
+	t.Cleanup(func() { anilistrl.TestingAdjust(anilistrl.MinGap, anilistrl.DefaultCooldown) })
 
 	origAPI := anilistAPI
 	anilistAPI = srv.URL
